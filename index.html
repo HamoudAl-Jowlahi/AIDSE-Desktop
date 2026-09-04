@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIDSE — Data Intelligence. Without the Cloud.</title>
+  <meta name="description" content="AIDSE — منصة علوم البيانات وتقييم النماذج تعمل محليًا على جهازك، بدون رفع بياناتك إلى السحابة." />
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+            inter: ['Inter', 'sans-serif']
+          },
+          colors: {
+            ink: '#05070b',
+            cyanx: '#6ee7ff',
+            bluex: '#4f8cff'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --bg:#05070b; --panel:#0a0f16; --line:rgba(255,255,255,.10); --text:#f6f8fb; --muted:#8994a5; --cyan:#6ee7ff; --blue:#4f8cff; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:auto; }
+    body { margin:0; background:var(--bg); color:var(--text); overflow-x:hidden; }
+    body.lang-ar { font-family:'Cairo',sans-serif; }
+    body.lang-en { font-family:'Inter',sans-serif; }
+    ::selection { background:rgba(110,231,255,.28); color:#fff; }
+    .noise { position:fixed; inset:0; pointer-events:none; opacity:.045; z-index:100; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); }
+    .grid-bg { background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px); background-size:56px 56px; mask-image:linear-gradient(to bottom,transparent,#000 18%,#000 80%,transparent); }
+    .glass { background:rgba(9,14,21,.62); border:1px solid var(--line); box-shadow:0 20px 80px rgba(0,0,0,.35); backdrop-filter:blur(22px); }
+    .glow { box-shadow:0 0 80px rgba(110,231,255,.10), inset 0 0 50px rgba(110,231,255,.025); }
+    .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+    .section-kicker { color:#7d8a9c; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; }
+    .hero-title { font-size:clamp(3.5rem,11vw,11.5rem); line-height:.85; letter-spacing:-.065em; font-weight:900; }
+    .story-title { font-size:clamp(3.5rem,10vw,9.5rem); line-height:.83; letter-spacing:-.06em; font-weight:900; }
+    .accent { color:var(--cyan); }
+    .orb { position:absolute; width:min(46vw,620px); aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 38% 34%,rgba(255,255,255,.95) 0 1%,rgba(110,231,255,.72) 8%,rgba(79,140,255,.34) 24%,rgba(26,53,93,.16) 43%,transparent 69%); filter:blur(.2px); opacity:.9; }
+    .orb::before,.orb::after { content:""; position:absolute; inset:8%; border:1px solid rgba(110,231,255,.16); border-radius:50%; transform:rotate(23deg) scaleY(.38); }
+    .orb::after { inset:18% -4%; transform:rotate(-30deg) scaleY(.25); border-color:rgba(255,255,255,.11); }
+    .scanline { position:absolute; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(110,231,255,.7),transparent); box-shadow:0 0 24px rgba(110,231,255,.55); opacity:.7; }
+    .metric { border:1px solid rgba(255,255,255,.09); background:rgba(8,12,18,.72); backdrop-filter:blur(16px); }
+    .metric strong { font-size:clamp(2.2rem,5vw,4.6rem); line-height:1; letter-spacing:-.07em; }
+    .data-cell { border-right:1px solid rgba(255,255,255,.055); border-bottom:1px solid rgba(255,255,255,.055); color:#758194; }
+    .data-cell.hot { color:#dffaff; background:rgba(110,231,255,.065); }
+    .progress { height:2px; background:rgba(255,255,255,.08); overflow:hidden; }
+    .progress > span { display:block; width:0%; height:100%; background:linear-gradient(90deg,var(--blue),var(--cyan)); box-shadow:0 0 20px rgba(110,231,255,.7); }
+    .node { border:1px solid rgba(255,255,255,.12); background:rgba(7,11,17,.78); box-shadow:0 16px 60px rgba(0,0,0,.3); }
+    .node.active { border-color:rgba(110,231,255,.5); box-shadow:0 0 40px rgba(110,231,255,.08); }
+    .connector { height:1px; background:linear-gradient(90deg,rgba(110,231,255,.05),rgba(110,231,255,.65),rgba(110,231,255,.05)); }
+    .shap-bar { height:8px; border-radius:999px; transform-origin:right center; transform:scaleX(0); }
+    html[dir="ltr"] .shap-bar { transform-origin:left center; }
+    .shap-pos { background:linear-gradient(90deg,#4f8cff,#6ee7ff); }
+    .shap-neg { background:linear-gradient(90deg,#f59e9e,#ff6b8a); transform-origin:left center; }
+    html[dir="ltr"] .shap-neg { transform-origin:right center; }
+    .ring { border:1px solid rgba(110,231,255,.24); border-radius:50%; box-shadow:inset 0 0 60px rgba(110,231,255,.04),0 0 60px rgba(110,231,255,.05); }
+    .local-box { border:1px solid rgba(110,231,255,.18); background:linear-gradient(135deg,rgba(110,231,255,.045),rgba(255,255,255,.015)); }
+    .btn-primary { background:#f5f8fb; color:#05070b; transition:.25s ease; }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 15px 40px rgba(255,255,255,.12); }
+    .btn-ghost { border:1px solid rgba(255,255,255,.13); background:rgba(255,255,255,.025); transition:.25s ease; }
+    .btn-ghost:hover { background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.22); }
+    .reveal { opacity:0; transform:translate3d(0,22px,0); }
+    .story-panel { padding-top:1.5rem; padding-bottom:2rem; }
+    .story-panel > div { width:100%; }
+    .story-panel p { text-wrap:balance; }
+    .section-kicker { display:flex; align-items:center; gap:.55rem; min-height:1.1rem; }
+    .pipeline { direction:ltr; }
+    .pipeline .node { min-height:92px; }
+    .pipeline .connector { min-width:28px; }
+    .data-card, .hero-console, .local-box, .glass { will-change:transform; transform:translateZ(0); }
+    .hero-console { contain:layout paint; }
+    .story-grid-wrap { overflow:hidden; border-radius:14px; }
+    .story-title, .hero-title { text-wrap:balance; }
+    .btn-primary, .btn-ghost { will-change:transform; }
+
+    /* RTL / LTR Alignment Helpers */
+    html[dir="rtl"] .align-start { text-align:right; }
+    html[dir="ltr"] .align-start { text-align:left; }
+    html[dir="rtl"] .justify-start-adaptive { justify-content:flex-start; }
+    html[dir="ltr"] .justify-start-adaptive { justify-content:flex-start; }
+    html[dir="rtl"] .justify-end-adaptive { justify-content:flex-end; }
+    html[dir="ltr"] .justify-end-adaptive { justify-content:flex-start; }
+    html[dir="rtl"] .ml-adaptive { margin-right:auto; margin-left:0; }
+    html[dir="ltr"] .ml-adaptive { margin-left:auto; margin-right:0; }
+    html[dir="rtl"] .order-text { order:1; }
+    html[dir="ltr"] .order-text { order:1; }
+    html[dir="rtl"] .order-visual { order:2; }
+    html[dir="ltr"] .order-visual { order:2; }
+
+    @media(max-width:1024px){
+      .story-panel .grid.lg\:grid-cols-2, .story-panel .grid.lg\:grid-cols-\[.8fr_1.2fr\] { gap:1.5rem; }
+    }
+    @media(max-width:768px){
+      .hero-title { font-size:clamp(2.75rem,13vw,4.5rem) !important; line-height:0.95; }
+      .story-title { font-size:clamp(2.5rem,12vw,4rem) !important; line-height:0.95; }
+      .orb { width:92vw; opacity:.35; }
+      .desktop-nav { display:none; }
+      .story-panel { padding-top:4.5rem; padding-bottom:1.5rem; }
+      .pipeline { direction:ltr; }
+      .hero-console { padding:1rem; border-radius:20px; }
+      .local-box { padding:1.25rem; border-radius:22px; }
+      #evalCards { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+      #evalCards .metric { padding: 1rem; }
+      #pipeline { gap: 0.5rem; }
+      #pipeline .node { padding: 0.6rem; min-height: 64px; }
+    }
+    @media(max-width:480px){
+      .hero-title { font-size:2.5rem !important; }
+      .story-title { font-size:2.25rem !important; }
+      #evalCards { grid-template-columns: 1fr; }
+    }
+    @media(prefers-reduced-motion:reduce){ html{scroll-behavior:auto!important} *,*::before,*::after{animation:none!important;transition:none!important} }
+  </style>
+</head>
+<body class="lang-ar">
+  <div class="noise"></div>
+  <div class="fixed inset-0 grid-bg pointer-events-none opacity-50"></div>
+
+  <!-- NAV -->
+  <header class="fixed top-0 left-0 right-0 z-50 px-4 md:px-8 pt-5">
+    <nav class="mx-auto max-w-7xl glass rounded-2xl px-4 md:px-6 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-3">
+        <!-- OFFICIAL LOGO IN NAVBAR -->
+        <div class="w-10 h-10 rounded-xl bg-slate-900 border border-cyan-400/30 flex items-center justify-center overflow-hidden shadow-lg shadow-cyan-500/20 p-1">
+          <img src="logo.png" alt="AIDSE Logo" class="w-full h-full object-contain">
+        </div>
+        <div class="leading-none align-start">
+          <div class="font-black tracking-tight text-white flex items-center gap-1.5">
+            <span>AIDSE</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-300 border border-cyan-400/20 font-bold">DESKTOP</span>
+          </div>
+          <div class="text-[9px] text-white/35 mt-1 mono" data-i18n="nav_tagline">LOCAL DATA INTELLIGENCE</div>
+        </div>
+      </a>
+
+      <!-- DESKTOP NAV LINKS -->
+      <div class="desktop-nav flex items-center gap-7 text-sm text-white/55 font-medium">
+        <a href="#story" class="hover:text-white transition" data-i18n="nav_how">كيف تعمل</a>
+        <a href="#features" class="hover:text-white transition" data-i18n="nav_features">المزايا</a>
+        <a href="#privacy" class="hover:text-white transition" data-i18n="nav_privacy">الخصوصية والأمان</a>
+      </div>
+
+      <!-- ACTIONS: LANG SWITCHER + DOWNLOAD -->
+      <div class="flex items-center gap-3">
+        <!-- LANGUAGE TOGGLE BUTTON -->
+        <button id="langToggle" onclick="toggleLanguage()" class="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-cyan-300 transition flex items-center gap-1.5 cursor-pointer">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+          </svg>
+          <span id="langLabel">English</span>
+        </button>
+
+        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.1.0/AIDSE-Platform_0.1.0_x64-setup.exe" download class="btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span data-i18n="nav_download">تحميل AIDSE</span>
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="min-h-screen relative flex items-center overflow-hidden pt-28">
+      <div class="absolute inset-0 pointer-events-none">
+        <div class="orb hero-orb left-[4%] top-[17%]"></div>
+        <div class="scanline top-[42%]" id="heroScan"></div>
+      </div>
+      <div class="relative z-10 max-w-7xl mx-auto w-full px-6 md:px-10 grid lg:grid-cols-[1.05fr_.95fr] gap-10 items-center">
+        
+        <!-- HERO TEXT -->
+        <div class="align-start order-text">
+          <div class="section-kicker reveal" data-i18n="hero_kicker">AIDSE / DATA SCIENCE DESKTOP</div>
+          <h1 class="hero-title mt-7 reveal" data-i18n="hero_title">
+            بياناتك.<br><span class="accent">نموذجك.</span>
+          </h1>
+          <p class="mt-8 max-w-xl text-lg md:text-xl text-white/55 leading-9 reveal" data-i18n="hero_desc">
+            منصة علوم بيانات وتقييم نماذج تعمل محليًا على جهازك — من تجهيز البيانات، إلى AutoML وOptuna وSHAP، بدون أن تغادر بياناتك جهازك.
+          </p>
+          <div class="mt-9 flex flex-wrap justify-end-adaptive gap-3 reveal">
+            <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.1.0/AIDSE-Platform_0.1.0_x64-setup.exe" download class="btn-primary rounded-xl px-6 py-3 font-bold flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <span data-i18n="hero_btn_start">ابدأ محليًا (Windows x64)</span>
+            </a>
+            <a href="#story" class="btn-ghost rounded-xl px-6 py-3 text-white/75" data-i18n="hero_btn_explore">شاهد التجربة ↓</a>
+          </div>
+          <div class="mt-10 flex justify-end-adaptive gap-6 text-xs text-white/35 reveal">
+            <span data-i18n="badge_offline">100% Offline</span><span>•</span>
+            <span data-i18n="badge_local">Local Processing</span><span>•</span>
+            <span data-i18n="badge_encrypted">Encrypted Data</span>
+          </div>
+        </div>
+
+        <!-- HERO CONSOLE -->
+        <div class="relative min-h-[420px] lg:min-h-[650px] order-visual flex items-center justify-center">
+          <div class="absolute inset-10 rounded-full border border-white/5"></div>
+          <div class="absolute inset-20 rounded-full border border-cyan-300/10 animate-[spin_25s_linear_infinite]"></div>
+          <div class="relative w-full max-w-[560px] glass glow rounded-[32px] p-4 md:p-6 overflow-hidden hero-console">
+            <div class="flex items-center justify-between border-b border-white/8 pb-4 text-[10px] text-white/35 mono">
+              <span class="flex items-center gap-2">
+                <img src="logo.png" alt="AIDSE" class="w-3.5 h-3.5 object-contain">
+                <span>AIDSE / MODEL_WORKSPACE</span>
+              </span>
+              <span class="text-cyan-300 font-bold">LOCAL • READY</span>
+            </div>
+            <div class="mt-5 grid grid-cols-12 gap-1.5 h-[280px] md:h-[350px] overflow-hidden rounded-2xl bg-[#070b11] border border-white/5 p-2">
+              <div class="col-span-12 grid grid-cols-12 gap-1" id="dataGrid"></div>
+            </div>
+            <div class="mt-4 grid grid-cols-3 gap-2">
+              <div class="metric rounded-xl p-3"><div class="text-[9px] text-white/35 mono" data-i18n="stat_rows">ROWS</div><div class="mt-1 font-bold">12,840</div></div>
+              <div class="metric rounded-xl p-3"><div class="text-[9px] text-white/35 mono" data-i18n="stat_features">FEATURES</div><div class="mt-1 font-bold">27</div></div>
+              <div class="metric rounded-xl p-3"><div class="text-[9px] text-white/35 mono" data-i18n="stat_status">STATUS</div><div class="mt-1 font-bold text-cyan-200" data-i18n="stat_local_val">LOCAL</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="absolute bottom-7 left-0 right-0 text-center text-[10px] text-white/25 mono tracking-[.35em]" data-i18n="scroll_hint">SCROLL TO RUN THE PIPELINE</div>
+    </section>
+
+    <!-- CINEMATIC STORY -->
+    <section id="story" class="relative" style="height:500vh">
+      <div class="sticky top-0 h-screen overflow-hidden">
+        <div class="absolute inset-0 grid-bg opacity-40"></div>
+        <div class="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#05070b] to-transparent"></div>
+        <div class="max-w-7xl mx-auto h-full px-6 md:px-10 relative">
+          <div class="absolute top-24 left-0 right-0 flex justify-between items-center text-[10px] text-white/25 mono">
+            <span id="stepLabel">01 / DATA</span>
+            <span>AIDSE PIPELINE</span>
+          </div>
+
+          <!-- 01: DATA -->
+          <div class="story-panel absolute inset-0 flex items-center" data-panel="0">
+            <div class="w-full grid lg:grid-cols-2 gap-12 items-center">
+              <div class="align-start">
+                <div class="section-kicker" data-i18n="s1_kicker">01 — INGEST</div>
+                <div class="story-title mt-5">DATA<span class="accent">.</span></div>
+                <p class="mt-8 text-white/50 text-lg leading-9 max-w-lg" data-i18n="s1_desc">تبدأ الرحلة من البيانات نفسها. AIDSE يحوّلها من جدول خام إلى مساحة عمل قابلة للتحليل والنمذجة.</p>
+              </div>
+              <div class="relative">
+                <div class="glass rounded-3xl p-5 data-card glow">
+                  <div class="flex items-center justify-between text-[10px] mono text-white/30 mb-4"><span>dataset.csv</span><span>27 FEATURES</span></div>
+                  <div class="story-grid-wrap"><div class="grid grid-cols-6 rounded-xl overflow-hidden" id="storyGrid"></div></div>
+                  <div class="mt-5 flex gap-2 items-center text-xs text-white/35 mono"><span class="w-2 h-2 rounded-full bg-cyan-300"></span> <span data-i18n="s1_detected">schema detected</span> <span class="ml-adaptive">12,840 rows</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 02: TRAIN -->
+          <div class="story-panel absolute inset-0 flex items-center opacity-0 pointer-events-none" data-panel="1">
+            <div class="w-full">
+              <div class="section-kicker align-start" data-i18n="s2_kicker">02 — TRAIN</div>
+              <div class="story-title mt-5 align-start">TRAIN<span class="accent">.</span></div>
+              <p class="mt-6 align-start text-white/45 max-w-2xl leading-8" data-i18n="s2_desc">بدل نموذج واحد، تتحول البيانات إلى pipeline واضح: preprocessing ثم خوارزميات متعددة ثم مقارنة للنتائج.</p>
+              <div class="mt-14 grid grid-cols-1 md:grid-cols-7 items-center gap-3 pipeline" id="pipeline">
+                <div class="node rounded-2xl p-5 text-center" data-node="0"><div class="text-[9px] mono text-white/30">INPUT</div><div class="font-bold mt-2">DATA</div></div>
+                <div class="connector hidden md:block"></div>
+                <div class="node rounded-2xl p-5 text-center" data-node="1"><div class="text-[9px] mono text-white/30">STEP 01</div><div class="font-bold mt-2">PREPROCESS</div></div>
+                <div class="connector hidden md:block"></div>
+                <div class="node rounded-2xl p-5 text-center" data-node="2"><div class="text-[9px] mono text-white/30">MODELS</div><div class="font-bold mt-2">XGBoost</div><div class="text-[10px] text-white/30 mt-1">LightGBM / CatBoost</div></div>
+                <div class="connector hidden md:block"></div>
+                <div class="node rounded-2xl p-5 text-center" data-node="3"><div class="text-[9px] mono text-white/30">OUTPUT</div><div class="font-bold mt-2 text-cyan-200">EVALUATE</div></div>
+              </div>
+              <div class="mt-8 glass rounded-2xl p-5 max-w-xl align-start"><div class="flex justify-between text-xs mono text-white/35"><span data-i18n="s2_progress_label">TRAINING PIPELINE</span><span id="trainPct">0%</span></div><div class="progress mt-3"><span id="trainProgress"></span></div></div>
+            </div>
+          </div>
+
+          <!-- 03: OPTIMIZE -->
+          <div class="story-panel absolute inset-0 flex items-center opacity-0 pointer-events-none" data-panel="2">
+            <div class="w-full grid lg:grid-cols-[.8fr_1.2fr] gap-12 items-center">
+              <div class="align-start">
+                <div class="section-kicker" data-i18n="s3_kicker">03 — OPTIMIZE</div>
+                <div class="story-title mt-5">OPTUNA<span class="accent">.</span></div>
+                <p class="mt-8 text-white/50 text-lg leading-9" data-i18n="s3_desc">استكشاف Hyperparameters ليس زرًا سحريًا. هو سلسلة من التجارب التي تبحث عن إعداد أفضل للنموذج.</p>
+              </div>
+              <div class="glass rounded-3xl p-6 glow">
+                <div class="flex items-center justify-between mb-5"><span class="text-xs mono text-white/35">OPTUNA / TRIALS</span><span class="text-xs text-cyan-200">SEARCHING</span></div>
+                <div class="space-y-3" id="trials"></div>
+                <div class="mt-6 border-t border-white/8 pt-5 flex items-end gap-5">
+                  <div><div class="text-[10px] text-white/30 mono">BEST TRIAL</div><div class="text-5xl font-black tracking-[-.06em]">#42</div></div>
+                  <div class="ml-adaptive align-start"><div class="text-[10px] text-white/30 mono">OBJECTIVE</div><div class="font-bold text-cyan-100" data-i18n="s3_obj">maximize validation score</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 04: EXPLAIN -->
+          <div class="story-panel absolute inset-0 flex items-center opacity-0 pointer-events-none" data-panel="3">
+            <div class="w-full grid lg:grid-cols-2 gap-12 items-center">
+              <div class="align-start">
+                <div class="section-kicker" data-i18n="s4_kicker">04 — EXPLAIN</div>
+                <div class="story-title mt-5">SHAP<span class="accent">.</span></div>
+                <p class="mt-8 text-white/50 text-lg leading-9" data-i18n="s4_desc">النموذج لا ينتهي عند prediction. مع SHAP، ترى تأثير الخصائص على القرار وتفهم لماذا تحرك التنبؤ بهذا الاتجاه.</p>
+              </div>
+              <div class="glass rounded-3xl p-6 glow">
+                <div class="flex items-center justify-between mb-7"><span class="text-xs mono text-white/35">EXPLANATION / SAMPLE 0184</span><span class="text-xs text-white/30">SHAP VALUES</span></div>
+                <div class="space-y-5" id="shap"></div>
+                <div class="mt-8 pt-5 border-t border-white/8 flex items-center justify-between"><span class="text-white/35 text-sm" data-i18n="s4_output">model output</span><strong class="text-3xl tracking-[-.05em]">prediction</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 05: EVALUATE -->
+          <div class="story-panel absolute inset-0 flex items-center opacity-0 pointer-events-none" data-panel="4">
+            <div class="w-full text-center">
+              <div class="section-kicker justify-center" data-i18n="s5_kicker">05 — EVALUATE</div>
+              <div class="story-title mt-5">EVALUATE<span class="accent">.</span></div>
+              <p class="mt-7 text-white/45 max-w-2xl mx-auto leading-8" data-i18n="s5_desc">قارن، افحص، واكتشف تراجع الأداء بدل الاعتماد على رقم واحد فقط.</p>
+              <div class="mt-14 grid md:grid-cols-4 gap-3 max-w-5xl mx-auto" id="evalCards">
+                <div class="metric rounded-2xl p-7 align-start"><div class="section-kicker">STRATEGY 01</div><strong class="block mt-5">CV</strong><p class="text-xs text-white/30 mt-3" data-i18n="s5_strat1">Cross validation</p></div>
+                <div class="metric rounded-2xl p-7 align-start"><div class="section-kicker">STRATEGY 02</div><strong class="block mt-5">HOLD</strong><p class="text-xs text-white/30 mt-3" data-i18n="s5_strat2">Holdout evaluation</p></div>
+                <div class="metric rounded-2xl p-7 align-start"><div class="section-kicker">STRATEGY 03</div><strong class="block mt-5">REG</strong><p class="text-xs text-white/30 mt-3" data-i18n="s5_strat3">Regression checks</p></div>
+                <div class="metric rounded-2xl p-7 align-start"><div class="section-kicker">STRATEGY 04</div><strong class="block mt-5 text-cyan-200">DRIFT</strong><p class="text-xs text-white/30 mt-3" data-i18n="s5_strat4">Performance regression</p></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 06: LOCAL (FEATURING OFFICIAL LOGO) -->
+          <div class="story-panel absolute inset-0 flex items-center opacity-0 pointer-events-none" data-panel="5">
+            <div class="w-full text-center">
+              <div class="section-kicker justify-center" data-i18n="s6_kicker">06 — LOCAL</div>
+              <div class="story-title mt-5">LOCAL<span class="accent">.</span></div>
+              <div class="mt-10 max-w-3xl mx-auto local-box rounded-[32px] p-8 md:p-12">
+                <!-- OFFICIAL LOGO IN GLOWING RING -->
+                <div class="mx-auto w-32 h-32 rounded-full ring flex items-center justify-center relative">
+                  <div class="absolute inset-2 bg-cyan-400/10 rounded-full blur-xl"></div>
+                  <img src="logo.png" alt="AIDSE Official Logo" class="w-20 h-20 rounded-2xl object-contain relative z-10 shadow-2xl shadow-cyan-500/50">
+                </div>
+                <div class="mt-8 text-3xl md:text-5xl font-black tracking-[-.05em]" data-i18n="s6_headline">YOUR DATA.<br>YOUR MACHINE.<br><span class="accent">YOUR MODEL.</span></div>
+                <p class="mt-7 text-white/40 leading-8" data-i18n="s6_desc">AIDSE مصمم للعمل على جهازك. المعالجة محلية، والبيانات لا تحتاج إلى مغادرة بيئتك.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="relative py-32 md:py-48 border-t border-white/5">
+      <div class="max-w-7xl mx-auto px-6 md:px-10">
+        <div class="flex items-end justify-between gap-8 mb-20">
+          <div class="align-start">
+            <div class="section-kicker" data-i18n="feat_kicker">THE TOOLKIT</div>
+            <h2 class="text-5xl md:text-8xl font-black tracking-[-.07em] mt-4" data-i18n="feat_title">كل ما تحتاجه<br><span class="accent">في مكان واحد.</span></h2>
+          </div>
+          <div class="hidden md:block text-xs text-white/25 mono">AIDSE / FEATURES</div>
+        </div>
+        <div class="grid lg:grid-cols-3 gap-4">
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[390px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">01 / AUTOML</div>
+              <h3 class="text-3xl font-black mt-6" data-i18n="feat1_h">AutoML<br>متقدم</h3>
+              <p class="text-white/40 leading-8 mt-5" data-i18n="feat1_p">XGBoost، LightGBM، CatBoost مع Optuna لتجارب Hyperparameter منظمة.</p>
+            </div>
+            <div class="flex gap-2 mt-8"><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">XGBoost</span><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">Optuna</span></div>
+          </article>
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[390px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">02 / XAI</div>
+              <h3 class="text-3xl font-black mt-6" data-i18n="feat2_h">افهم<br>النموذج</h3>
+              <p class="text-white/40 leading-8 mt-5" data-i18n="feat2_p">تحليل قابل للتفسير باستخدام SHAP لفهم مساهمة الخصائص في التنبؤات.</p>
+            </div>
+            <div class="mt-8 flex items-end gap-1 h-20 w-full"><i class="w-1/6 bg-cyan-300/20 h-3 rounded"></i><i class="w-1/6 bg-cyan-300/35 h-8 rounded"></i><i class="w-1/6 bg-cyan-300/50 h-12 rounded"></i><i class="w-1/6 bg-cyan-300/70 h-20 rounded"></i><i class="w-1/6 bg-cyan-300/35 h-10 rounded"></i><i class="w-1/6 bg-cyan-300/20 h-5 rounded"></i></div>
+          </article>
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[390px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">03 / EVALUATION</div>
+              <h3 class="text-3xl font-black mt-6" data-i18n="feat3_h">اختبر<br>الثبات</h3>
+              <p class="text-white/40 leading-8 mt-5" data-i18n="feat3_p">أربع استراتيجيات للتقييم مع فحص Performance Regression لمراقبة جودة النموذج.</p>
+            </div>
+            <div class="mt-8 grid grid-cols-4 gap-2 w-full"><span class="h-12 rounded-lg bg-white/5 border border-white/5"></span><span class="h-16 rounded-lg bg-white/7 border border-white/5"></span><span class="h-10 rounded-lg bg-cyan-300/10 border border-cyan-300/10"></span><span class="h-20 rounded-lg bg-white/8 border border-white/5"></span></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIVACY -->
+    <section id="privacy" class="relative py-32 md:py-48 overflow-hidden border-t border-white/5">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(110,231,255,.07),transparent_35%)]"></div>
+      <div class="max-w-5xl mx-auto px-6 text-center relative">
+        <div class="section-kicker justify-center" data-i18n="priv_kicker">LOCAL BY DESIGN</div>
+        <h2 class="text-5xl md:text-8xl font-black tracking-[-.07em] mt-6" data-i18n="priv_title">لا تحتاج إلى<br><span class="accent">Cloud.</span></h2>
+        <p class="mt-8 text-white/45 text-lg leading-9 max-w-2xl mx-auto" data-i18n="priv_desc">AIDSE يعمل بالكامل على جهازك. بياناتك تبقى محلية، مع تشفير محلي AES-256 لحماية خصوصيتك التامة.</p>
+        <div class="mt-14 grid sm:grid-cols-3 gap-3 align-start">
+          <div class="glass rounded-2xl p-6 reveal"><div class="text-xs mono text-white/25">01</div><div class="font-bold mt-5">100% Offline</div><div class="text-sm text-white/35 mt-2" data-i18n="priv1_sub">بدون اعتماد على الإنترنت أثناء العمل.</div></div>
+          <div class="glass rounded-2xl p-6 reveal"><div class="text-xs mono text-white/25">02</div><div class="font-bold mt-5">Local Processing</div><div class="text-sm text-white/35 mt-2" data-i18n="priv2_sub">المعالجة على جهازك بدل إرسال البيانات.</div></div>
+          <div class="glass rounded-2xl p-6 reveal"><div class="text-xs mono text-white/25">03</div><div class="font-bold mt-5">AES-256</div><div class="text-sm text-white/35 mt-2" data-i18n="priv3_sub">طبقة تشفير محلية للبيانات المحفوظة.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section class="min-h-[75vh] flex items-center justify-center border-t border-white/5 relative overflow-hidden">
+      <div class="absolute w-[700px] h-[700px] rounded-full border border-white/5"></div>
+      <div class="absolute w-[450px] h-[450px] rounded-full border border-cyan-300/10"></div>
+      <div class="relative text-center px-6">
+        <div class="w-16 h-16 rounded-2xl mx-auto mb-6 p-2 bg-slate-900 border border-cyan-400/30 shadow-2xl shadow-cyan-500/30">
+          <img src="logo.png" alt="AIDSE" class="w-full h-full object-contain">
+        </div>
+        <div class="section-kicker justify-center">AIDSE / DESKTOP DATA SCIENCE</div>
+        <h2 class="text-4xl sm:text-6xl md:text-[8rem] leading-[.88] tracking-[-.07em] font-black mt-6">DATA<br><span class="accent">INTELLIGENCE.</span></h2>
+        <p class="mt-8 text-white/40 text-lg" data-i18n="cta_sub">Without the Cloud.</p>
+        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.1.0/AIDSE-Platform_0.1.0_x64-setup.exe" download class="btn-primary inline-flex items-center gap-2 rounded-xl px-8 py-4 mt-8 font-bold text-base shadow-2xl shadow-white/10">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span data-i18n="cta_download_btn">تحميل AIDSE Desktop لنظام Windows</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-white/5 py-8 px-6 md:px-10">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between text-xs text-white/25">
+      <div class="flex items-center gap-2">
+        <img src="logo.png" alt="AIDSE" class="w-4 h-4 object-contain">
+        <span>© 2026 AIDSE Platform</span>
+      </div>
+      <span class="mono">DATA SCIENCE • AI • LOCAL PROCESSING</span>
+      <span data-i18n="footer_tag">Built for private, local workflows.</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script>
+    // ── I18N DICTIONARY ──────────────────────────────────────────────
+    const translations = {
+      ar: {
+        nav_tagline: "LOCAL DATA INTELLIGENCE",
+        nav_how: "كيف تعمل",
+        nav_features: "المزايا",
+        nav_privacy: "الخصوصية والأمان",
+        nav_download: "تحميل AIDSE",
+        hero_kicker: "AIDSE / DATA SCIENCE DESKTOP",
+        hero_title: "بياناتك.<br><span class=\"accent\">نموذجك.</span>",
+        hero_desc: "منصة علوم بيانات وتقييم نماذج تعمل محليًا على جهازك — من تجهيز البيانات، إلى AutoML وOptuna وSHAP، بدون أن تغادر بياناتك جهازك.",
+        hero_btn_start: "ابدأ محليًا (Windows x64)",
+        hero_btn_explore: "شاهد التجربة ↓",
+        badge_offline: "100% Offline",
+        badge_local: "معالجة محلية",
+        badge_encrypted: "بيانات مشفرة",
+        stat_rows: "الصفوف",
+        stat_features: "الخصائص",
+        stat_status: "الحالة",
+        stat_local_val: "محلي",
+        scroll_hint: "مرر لأسفل لتشغيل مسار العمل",
+        s1_kicker: "01 — جلب البيانات",
+        s1_desc: "تبدأ الرحلة من البيانات نفسها. AIDSE يحوّلها من جدول خام إلى مساحة عمل قابلة للتحليل والنمذجة.",
+        s1_detected: "تم كشف بنية البيانات",
+        s2_kicker: "02 — التدريب",
+        s2_desc: "بدل نموذج واحد، تتحول البيانات إلى pipeline واضح: معالجة مسبقة ثم خوارزميات متعددة ثم مقارنة للنتائج.",
+        s2_progress_label: "مسار التدريب المؤتمت",
+        s3_kicker: "03 — تحسين المعلمات",
+        s3_desc: "استكشاف المعلمات الفائقة ليس زرًا سحريًا. هو سلسلة من التجارب الذكية التي تبحث عن أفضل أداء للنموذج.",
+        s3_obj: "تعظيم دقة التحقق والتقييم",
+        s4_kicker: "04 — تفسير القرارات",
+        s4_desc: "النموذج لا ينتهي عند التنبؤ. مع SHAP، ترى تأثير الخصائص وتفهم بدقة لماذا اتخذ النموذج هذا القرار.",
+        s4_output: "مخرجات النموذج",
+        s5_kicker: "05 — التقييم الشامل",
+        s5_desc: "قارن، افحص، واكتشف تراجع الأداء بدل الاعتماد على رقم أو مقياس واحد فقط.",
+        s5_strat1: "تحقق متقاطع شامل",
+        s5_strat2: "تقييم العينة المعزولة",
+        s5_strat3: "فحص الانحدار والاستقرار",
+        s5_strat4: "كشف تراجع دقة النموذج",
+        s6_kicker: "06 — الخصوصية المحلية",
+        s6_headline: "YOUR DATA.<br>YOUR MACHINE.<br><span class=\"accent\">YOUR MODEL.</span>",
+        s6_desc: "AIDSE مصمم للعمل على جهازك. المعالجة محلية 100%، وبياناتك الحساسة لا تحتاج أبدًا إلى مغادرة حاسوبك.",
+        feat_kicker: "صندوق الأدوات المتكامل",
+        feat_title: "كل ما تحتاجه<br><span class=\"accent\">في مكان واحد.</span>",
+        feat1_h: "AutoML<br>متقدم",
+        feat1_p: "XGBoost، LightGBM، CatBoost مع Optuna لتجارب معلمات فائقة منظمة وسريعة.",
+        feat2_h: "افهم<br>النموذج (XAI)",
+        feat2_p: "تحليل قابل للتفسير باستخدام قيم ومخططات SHAP لفهم مساهمة الخصائص في كل قرار.",
+        feat3_h: "اختبر<br>الثبات والجودة",
+        feat3_p: "أربع استراتيجيات متقدمة للتقييم مع بوابات كشف التراجع لمراقبة جودة النماذج وموثوقيتها.",
+        priv_kicker: "محلي بطبيعته وتصميمه",
+        priv_title: "لا تحتاج إلى<br><span class=\"accent\">Cloud.</span>",
+        priv_desc: "AIDSE يعمل بالكامل على جهازك. بياناتك تبقى محلية، مع تشفير محلي AES-256 لحماية خصوصيتك التامة.",
+        priv1_sub: "بدون اعتماد على الإنترنت أثناء العمل والتدريب.",
+        priv2_sub: "معالجة كاملة على عتاد جهازك بدل إرسال البيانات.",
+        priv3_sub: "طبقة تشفير SQLCipher AES-256 لقواعد بياناتك المحلية.",
+        cta_sub: "بدون سحابة • معالجة محلية كاملة",
+        cta_download_btn: "تحميل AIDSE Desktop لنظام Windows",
+        footer_tag: "صُمم لبيئات العمل المحلية الحساسة والخاصة."
+      },
+      en: {
+        nav_tagline: "LOCAL DATA INTELLIGENCE",
+        nav_how: "How It Works",
+        nav_features: "Features",
+        nav_privacy: "Privacy & Security",
+        nav_download: "Download AIDSE",
+        hero_kicker: "AIDSE / DATA SCIENCE DESKTOP",
+        hero_title: "Your Data.<br><span class=\"accent\">Your Model.</span>",
+        hero_desc: "A local-first data science and model evaluation platform that runs directly on your machine — from data preparation to AutoML, Optuna, and SHAP, without your data ever leaving your device.",
+        hero_btn_start: "Start Locally (Windows x64)",
+        hero_btn_explore: "Explore The Pipeline ↓",
+        badge_offline: "100% Offline",
+        badge_local: "Local Processing",
+        badge_encrypted: "AES-256 Encrypted",
+        stat_rows: "ROWS",
+        stat_features: "FEATURES",
+        stat_status: "STATUS",
+        stat_local_val: "LOCAL",
+        scroll_hint: "SCROLL TO RUN THE PIPELINE",
+        s1_kicker: "01 — INGEST",
+        s1_desc: "The journey starts from the data itself. AIDSE transforms raw tabular files into an actionable, profiled workspace ready for analytics and modeling.",
+        s1_detected: "schema detected",
+        s2_kicker: "02 — TRAIN",
+        s2_desc: "Instead of a single blind model, data flows into a transparent pipeline: automated preprocessing, multi-algorithm training, and benchmark comparisons.",
+        s2_progress_label: "AUTOMATED TRAINING PIPELINE",
+        s3_kicker: "03 — OPTIMIZE",
+        s3_desc: "Hyperparameter tuning is not magic. It is a systematic, Bayesian series of Optuna trials discovering optimal model configurations.",
+        s3_obj: "maximize validation score",
+        s4_kicker: "04 — EXPLAIN",
+        s4_desc: "A model doesn't end at prediction. With SHAP, inspect feature contributions and understand exactly why each decision was made.",
+        s4_output: "model output",
+        s5_kicker: "05 — EVALUATE",
+        s5_desc: "Compare, stress-test, and detect regression instead of relying on a single aggregate metric.",
+        s5_strat1: "Cross validation",
+        s5_strat2: "Holdout evaluation",
+        s5_strat3: "Regression checks",
+        s5_strat4: "Performance drift gate",
+        s6_kicker: "06 — LOCAL PRIVACY",
+        s6_headline: "YOUR DATA.<br>YOUR MACHINE.<br><span class=\"accent\">YOUR MODEL.</span>",
+        s6_desc: "AIDSE is engineered for on-device computing. Processing is 100% local, and sensitive data never leaves your environment.",
+        feat_kicker: "THE COMPLETE TOOLKIT",
+        feat_title: "Everything You Need<br><span class=\"accent\">In One Workspace.</span>",
+        feat1_h: "Advanced<br>AutoML",
+        feat1_p: "XGBoost, LightGBM, CatBoost with Bayesian Optuna optimization for structured, high-performance trials.",
+        feat2_h: "Explainable<br>AI (XAI)",
+        feat2_p: "Deep model interpretability with SHAP value visualizers to audit feature impact on predictions.",
+        feat3_h: "Evaluation &<br>Gate Checks",
+        feat3_p: "Four rigorous evaluation strategies with regression gate detectors to maintain model trustworthiness.",
+        priv_kicker: "LOCAL BY DESIGN",
+        priv_title: "No Need for<br><span class=\"accent\">The Cloud.</span>",
+        priv_desc: "AIDSE runs entirely on your device. Your data stays local, protected by native AES-256 SQLCipher encryption.",
+        priv1_sub: "Zero internet dependency during day-to-day modeling.",
+        priv2_sub: "Full CPU/GPU execution on your hardware instead of cloud APIs.",
+        priv3_sub: "AES-256 encrypted storage layer for your local databases.",
+        cta_sub: "Without the Cloud • 100% Local Execution",
+        cta_download_btn: "Download AIDSE Desktop for Windows",
+        footer_tag: "Built for private, local, mission-critical workflows."
+      }
+    };
+
+    let currentLang = localStorage.getItem('aidse_lang') || 'ar';
+
+    function applyLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('aidse_lang', lang);
+      const isAr = lang === 'ar';
+      
+      document.documentElement.lang = lang;
+      document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+      document.body.className = isAr ? 'lang-ar' : 'lang-en';
+      document.getElementById('langLabel').textContent = isAr ? 'English' : 'العربية';
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+          el.innerHTML = translations[lang][key];
+        }
+      });
+    }
+
+    function toggleLanguage() {
+      applyLanguage(currentLang === 'ar' ? 'en' : 'ar');
+    }
+
+    // Initialize Language
+    applyLanguage(currentLang);
+
+    // ── ANIMATIONS & GSAP SETUP ───────────────────────────────────────
+    const grid = document.getElementById('dataGrid');
+    const cols = 12, rows = 15;
+    const values = ['0.84','1.21','-0.42','73','0.17','42','1.08','0.91','-1.4','28','0.66','12'];
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const d=document.createElement('div'); d.className='data-cell rounded-sm text-[8px] md:text-[9px] mono flex items-center justify-center min-h-5 md:min-h-6';
+      d.textContent=values[(r+c)%values.length]; if((r*3+c*5)%11===0)d.classList.add('hot'); grid.appendChild(d);
+    }
+    const storyGrid=document.getElementById('storyGrid');
+    for(let i=0;i<72;i++){ const d=document.createElement('div'); d.className='data-cell h-8 md:h-10 flex items-center justify-center text-[8px] mono'; d.textContent=['12.4','0.81','-0.3','7.2','0.04','93'][i%6]; if(i%13===0)d.classList.add('hot'); storyGrid.appendChild(d); }
+
+    const trials=document.getElementById('trials');
+    [71.8,78.4,82.1,86.7,89.2,91.4].forEach((v,i)=>{ const row=document.createElement('div'); row.className='grid grid-cols-[55px_1fr_55px] gap-3 items-center'; row.innerHTML=`<span class="text-[10px] mono text-white/30">#${i+37}</span><div class="progress"><span data-width="${v-60}%" style="width:${v-60}%"></span></div><span class="text-xs mono ${document.documentElement.dir === 'rtl' ? 'text-left' : 'text-right'}">${v.toFixed(1)}%</span>`; trials.appendChild(row); });
+    
+    const shap=document.getElementById('shap');
+    [['feature_01',72,'pos'],['feature_07',58,'pos'],['feature_13',43,'pos'],['feature_03',31,'neg'],['feature_21',21,'neg']].forEach(([name,w,type])=>{ const row=document.createElement('div'); row.innerHTML=`<div class="flex justify-between text-[11px] mono text-white/40 mb-2"><span>${name}</span><span>${type==='pos'?'+':'-'}${w/100}</span></div><div class="h-2 rounded-full bg-white/5 overflow-hidden"><div class="shap-bar ${type==='pos'?'shap-pos':'shap-neg'}" style="width:${w}%"></div></div>`; shap.appendChild(row); });
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (reduceMotion) {
+      document.querySelectorAll('.reveal').forEach(el => {
+        el.style.opacity = 1;
+        el.style.transform = 'none';
+      });
+      document.querySelectorAll('.story-panel').forEach((el, i) => {
+        el.style.opacity = i === 0 ? 1 : 0;
+      });
+    } else {
+      gsap.registerPlugin(ScrollTrigger);
+
+      gsap.utils.toArray('.reveal').forEach(el => {
+        gsap.fromTo(el,
+          { autoAlpha: 0, y: 22 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            duration: .65,
+            ease: 'power2.out',
+            overwrite: 'auto',
+            scrollTrigger: { trigger: el, start: 'top 88%', once: true }
+          }
+        );
+      });
+
+      gsap.to('.hero-orb', {
+        y: 42,
+        x: 18,
+        scale: 1.035,
+        scrollTrigger: { trigger: '#top', start: 'top top', end: '700px', scrub: .7 }
+      });
+      gsap.to('#heroScan', {
+        y: '34vh',
+        opacity: .18,
+        scrollTrigger: { trigger: '#top', start: 'top top', end: '700px', scrub: .7 }
+      });
+
+      const panels = gsap.utils.toArray('.story-panel');
+      const names = ['DATA', 'TRAIN', 'OPTIMIZE', 'EXPLAIN', 'EVALUATE', 'LOCAL'];
+      const story = gsap.timeline({
+        defaults: { ease: 'none' },
+        scrollTrigger: {
+          trigger: '#story',
+          start: 'top top',
+          end: 'bottom bottom',
+          scrub: .45,
+          invalidateOnRefresh: true,
+          onUpdate(self) {
+            const idx = Math.min(panels.length - 1, Math.floor(self.progress * panels.length));
+            document.getElementById('stepLabel').textContent =
+              String(idx + 1).padStart(2, '0') + ' / ' + names[idx];
+          }
+        }
+      });
+
+      panels.forEach((panel, i) => {
+        const start = i;
+        if (i === 0) {
+          gsap.set(panel, { autoAlpha: 1 });
+        } else {
+          gsap.set(panel, { autoAlpha: 0 });
+        }
+
+        if (i > 0) {
+          story.to(panel, { autoAlpha: 1, duration: .16 }, start);
+        }
+
+        if (i < panels.length - 1) {
+          story.to(panel, { autoAlpha: 0, duration: .18 }, start + .82);
+        }
+      });
+
+      story.to('.data-card', { y: -18, scale: 1.012, duration: .5 }, 0.15);
+      story.to('#storyGrid .data-cell', {
+        backgroundColor: 'rgba(110,231,255,.09)',
+        color: '#bdeff8',
+        stagger: { each: .008, from: 'random' },
+        duration: .45
+      }, .18);
+
+      const nodes = gsap.utils.toArray('#pipeline .node');
+      nodes.forEach((node, i) => {
+        story.to(node, {
+          borderColor: 'rgba(110,231,255,.42)',
+          boxShadow: '0 0 28px rgba(110,231,255,.07)',
+          scale: 1.015,
+          duration: .12
+        }, 1.04 + i * .11);
+        story.to(node, {
+          scale: 1,
+          duration: .10
+        }, 1.16 + i * .11);
+      });
+      story.to('#trainProgress', { width: '100%', duration: .55 }, 1.05);
+      story.to('#trainPct', { textContent: '100%', duration: .55 }, 1.05);
+
+      gsap.utils.toArray('#trials .progress > span').forEach((bar) => {
+        const target = bar.dataset.width || bar.style.width;
+        gsap.set(bar, { width: 0 });
+        story.to(bar, { width: target, duration: .24 }, 2.08);
+      });
+
+      gsap.utils.toArray('.shap-bar').forEach(bar => {
+        gsap.set(bar, { scaleX: 0 });
+      });
+      story.to('.shap-bar', {
+        scaleX: 1,
+        duration: .38,
+        stagger: .055,
+        ease: 'power2.out'
+      }, 3.10);
+
+      story.fromTo('#evalCards > div',
+        { y: 18, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, stagger: .07, duration: .28, ease: 'power2.out' },
+        4.10
+      );
+
+      story.to('[data-panel="5"] .local-box', {
+        scale: 1.018,
+        boxShadow: '0 0 80px rgba(110,231,255,.10)',
+        duration: .45
+      }, 5.08);
+
+      gsap.to('#dataGrid .data-cell', {
+        opacity: .58,
+        stagger: { each: .025, from: 'random' },
+        repeat: -1,
+        yoyo: true,
+        duration: 1.8,
+        ease: 'sine.inOut'
+      });
+      gsap.to('.ring', {
+        rotation: 360,
+        duration: 34,
+        repeat: -1,
+        ease: 'none'
+      });
+    }
+  </script>
+</body>
+</html>
