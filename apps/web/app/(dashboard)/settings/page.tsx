@@ -19,7 +19,6 @@ export default function SettingsPage() {
     max_training_threads: 4,
     performance_mode: "balanced",
     theme: "dark",
-    require_app_lock: false,
     auto_cleanup_cache: false,
     launch_on_startup: false,
   });
@@ -391,23 +390,10 @@ export default function SettingsPage() {
             <div className="glass-panel rounded-xl p-5 space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2 pb-2 border-b border-white/10">
                 <span className="material-symbols-outlined text-cyan-400 text-base">shield</span>
-                <span>خيارات القفل التلقائي</span>
+                <span>خيارات الصيانة</span>
               </h3>
 
               <div className="space-y-4">
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.require_app_lock}
-                    onChange={(e) => handleSaveSettings({ require_app_lock: e.target.checked })}
-                    className="mt-1 rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500"
-                  />
-                  <div>
-                    <span className="text-sm font-medium text-slate-200 block">طلب كلمة المرور عند تشغيل التطبيق</span>
-                    <span className="text-xs text-slate-400">إلزام إدخال كلمة المرور قبل فتح واجهة العمل الرئيسية.</span>
-                  </div>
-                </label>
-
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"

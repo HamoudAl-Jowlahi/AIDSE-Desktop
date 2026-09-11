@@ -29,7 +29,6 @@ class DesktopSettingsPayload(BaseModel):
     max_training_threads: int = Field(default=4, ge=1, le=64)
     performance_mode: str = Field(default="balanced")  # "balanced" | "max"
     theme: str = Field(default="dark")  # "dark" | "light" | "system"
-    require_app_lock: bool = Field(default=False)
     auto_cleanup_cache: bool = Field(default=False)
     launch_on_startup: bool = Field(default=False)
 
@@ -46,7 +45,6 @@ def _read_desktop_settings() -> dict[str, Any]:
         "max_training_threads": default_threads,
         "performance_mode": "balanced",
         "theme": "dark",
-        "require_app_lock": False,
         "auto_cleanup_cache": False,
         "launch_on_startup": False,
     }
@@ -54,7 +52,9 @@ def _read_desktop_settings() -> dict[str, Any]:
         try:
             with open(s_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                defaults.update(data)
+                # Only keys we still support. require_app_lock was persisted by
+                # an earlier build for a lock that was never implemented.
+                defaults.update({k: v for k, v in data.items() if k in defaults})
         except Exception:
             pass
     return defaults

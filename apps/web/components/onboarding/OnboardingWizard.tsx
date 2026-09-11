@@ -10,7 +10,6 @@ import {
   Sparkles,
   ArrowRight,
   CheckCircle2,
-  KeyRound,
   HardDrive,
   Eye,
   Check,
@@ -21,16 +20,17 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<number>(1);
 
   // Form states
-  const [appLockEnabled, setAppLockEnabled] = useState<boolean>(false);
-  const [pin, setPin] = useState<string>("");
   const [workspacePath, setWorkspacePath] = useState<string>("Documents/AIDSE");
   const [llmJudgeEnabled, setLlmJudgeEnabled] = useState<boolean>(false);
 
   const handleFinish = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("aidse_onboarding_completed", "true");
-      localStorage.setItem("aidse_app_lock_enabled", String(appLockEnabled));
-      if (pin) localStorage.setItem("aidse_pin_code", pin);
+      // A previous build collected a 4-digit PIN here, wrote it to localStorage
+      // in cleartext, and never read it back — the lock was never enforced.
+      // Remove anything it left behind on this machine.
+      localStorage.removeItem("aidse_pin_code");
+      localStorage.removeItem("aidse_app_lock_enabled");
       localStorage.setItem("aidse_workspace_path", workspacePath);
       localStorage.setItem("aidse_cloud_llm_judge", String(llmJudgeEnabled));
     }
@@ -54,7 +54,7 @@ export function OnboardingWizard() {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div
                 key={i}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
@@ -125,9 +125,11 @@ export function OnboardingWizard() {
               <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-start gap-3.5">
                 <Lock className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-medium text-slate-200">Encrypted at Rest</h4>
+                  <h4 className="text-sm font-medium text-slate-200">Credentials Kept in Your OS Keychain</h4>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Datasets and evaluation results are protected with AES-256 SQLCipher database encryption.
+                    Any AI provider key you add is encrypted with a secret unique to this
+                    machine, held in Windows Credential Manager. Your datasets are stored as
+                    ordinary files in your user profile — use disk encryption to protect them.
                   </p>
                 </div>
               </div>
@@ -158,71 +160,8 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {/* STEP 3: Optional App Lock Screen */}
+        {/* STEP 3: Workspace Path Screen */}
         {step === 3 && (
-          <div className="space-y-6">
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-cyan-400" />
-                <span>Optional App Lock</span>
-              </h2>
-              <p className="text-slate-400 text-xs">
-                Protect access to AIDSE on shared devices with a local PIN code.
-              </p>
-            </div>
-
-            <div className="p-5 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-slate-200">Enable Local Security Lock</div>
-                  <div className="text-xs text-slate-400">Default: Disabled (You can enable this later in Settings)</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setAppLockEnabled(!appLockEnabled)}
-                  className={`w-12 h-6 rounded-full transition-colors p-1 flex items-center ${
-                    appLockEnabled ? "bg-cyan-500 justify-end" : "bg-slate-800 justify-start"
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-slate-950 shadow-md" />
-                </button>
-              </div>
-
-              {appLockEnabled && (
-                <div className="pt-3 border-t border-slate-800/60 space-y-2">
-                  <label className="text-xs font-medium text-slate-300">Set 4-Digit PIN Code</label>
-                  <input
-                    type="password"
-                    maxLength={4}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="e.g. 1234"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800/60">
-              <button
-                onClick={() => setStep(4)}
-                className="py-2.5 px-4 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
-              >
-                Skip for now
-              </button>
-              <button
-                onClick={() => setStep(4)}
-                className="py-2.5 px-5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-all duration-200 flex items-center gap-2 cursor-pointer"
-              >
-                <span>Next</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: Workspace Path Screen */}
-        {step === 4 && (
           <div className="space-y-6">
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -251,13 +190,13 @@ export function OnboardingWizard() {
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-800/60">
               <button
-                onClick={() => setStep(3)}
+                onClick={() => setStep(2)}
                 className="py-2.5 px-4 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
               >
                 Back
               </button>
               <button
-                onClick={() => setStep(5)}
+                onClick={() => setStep(4)}
                 className="py-2.5 px-5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-all duration-200 flex items-center gap-2 cursor-pointer"
               >
                 <span>Next</span>
@@ -268,7 +207,7 @@ export function OnboardingWizard() {
         )}
 
         {/* STEP 5: Optional Cloud Features Screen */}
-        {step === 5 && (
+        {step === 4 && (
           <div className="space-y-6">
             <div className="space-y-1">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -307,7 +246,7 @@ export function OnboardingWizard() {
 
             <div className="flex items-center justify-between pt-4 border-t border-slate-800/60">
               <button
-                onClick={() => setStep(4)}
+                onClick={() => setStep(3)}
                 className="py-2.5 px-4 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
               >
                 Back
