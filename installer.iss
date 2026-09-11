@@ -40,6 +40,10 @@ Source: "dist\aidse-backend\*"; DestDir: "{app}\dist\aidse-backend"; Flags: igno
 Source: "apps\web\out\*"; DestDir: "{app}\apps\web\out"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Python API source
 Source: "apps\api\*"; DestDir: "{app}\apps\api"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Alembic config. The migration runner resolves this next to apps/, so without
+; it run_migrations_headless() finds nothing and returns — which is how every
+; installed copy ended up with a create_all schema and no alembic_version row.
+Source: "alembic.ini"; DestDir: "{app}"; Flags: ignoreversion
 ; Launchers & Icons
 Source: "Launch-AIDSE.vbs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Launch-AIDSE.bat"; DestDir: "{app}"; Flags: ignoreversion

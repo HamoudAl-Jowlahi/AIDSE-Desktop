@@ -28,13 +28,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Runs once per worker process.
     """
     # Startup: headless DB migrations & connection check
+    import asyncio
+
     from apps.api.db.migrations_runner import run_migrations_headless
     from apps.api.db.session import engine
     from apps.api.db.base import Base
     from sqlalchemy import text
 
     try:
-        run_migrations_headless()
+        # Alembic's env.py drives an async engine via asyncio.run(), which
+        # cannot be called from inside this already-running loop. A worker
+        # thread has no loop of its own, so it runs there — and migrations
+        # stay off the event loop, which they should be regardless.
+        await asyncio.to_thread(run_migrations_headless)
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             if "sqlite" in str(engine.url):

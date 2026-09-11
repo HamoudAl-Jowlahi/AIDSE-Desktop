@@ -54,8 +54,11 @@ hiddenimports = [
 ] + collect_submodules('apps.api') + collect_submodules('services')
 
 datas = [
-    ('../../apps/api/alembic', 'apps/api/alembic'),
-    ('../../apps/api/alembic.ini', 'apps/api'),
+    # The migration scripts and the alembic.ini the runner resolves from the
+    # bundle root. Previously this pointed at apps/api/alembic/, an orphaned
+    # second tree that has been removed.
+    ('../../apps/api/db/migrations', 'apps/api/db/migrations'),
+    ('../../alembic.ini', '.'),
 ] + collect_data_files('shap') + collect_data_files('xgboost') + collect_data_files('lightgbm') + collect_data_files('optuna')
 
 binaries = collect_dynamic_libs('xgboost') + collect_dynamic_libs('lightgbm')

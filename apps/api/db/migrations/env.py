@@ -25,6 +25,9 @@ from apps.api.modules.projects.models import AuditLog, Project, ProjectMember  #
 from apps.api.modules.datasets.models import Dataset, DatasetVersion, GoldenDataset, GoldenCase  # noqa: F401
 from apps.api.modules.evaluation.models import EvaluationRun, EvaluationResult, RegressionReport, RegressionReportCase, ScheduledEvaluation  # noqa: F401
 from apps.api.modules.automl.models import Experiment, ModelTrial  # noqa: F401
+# Without this, target_metadata is missing the chat tables and autogenerate
+# proposes dropping conversations/chat_messages.
+from apps.api.modules.conversational.models import ChatMessage, Conversation  # noqa: F401
 
 # Alembic Config object
 config = context.config
