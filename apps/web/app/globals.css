@@ -1,0 +1,393 @@
+/**
+ * AIDSE Platform — Global CSS Design System
+ * Tailwind v4 CSS-first configuration — tokens defined in @theme block.
+ * Glass design system from Stitch (dashboard_glass.html + eval_run_glass.html).
+ */
+
+/* ── Offline Local Font declarations ─────────────────────────────────────── */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
+}
+
+@import "tailwindcss";
+
+/* ── Tailwind v4 theme tokens (replaces tailwind.config.ts) ────────────────── */
+@theme {
+  /* ── Color tokens — Material You Dark (from Stitch) ── */
+  --color-background: #0d1515;
+  --color-surface: #0d1515;
+  --color-surface-dim: #0d1515;
+  --color-surface-container-lowest: #081010;
+  --color-surface-container-low: #151d1e;
+  --color-surface-container: #192122;
+  --color-surface-container-high: #232b2c;
+  --color-surface-container-highest: #2e3637;
+  --color-surface-bright: #333b3b;
+  --color-surface-variant: #2e3637;
+  --color-surface-tint: #00dce6;
+
+  --color-primary: #e0fdff;
+  --color-primary-container: #00f2fe;
+  --color-primary-fixed: #6ff6ff;
+  --color-primary-fixed-dim: #00dce6;
+  --color-on-primary: #00373a;
+  --color-on-primary-container: #006a70;
+  --color-on-primary-fixed: #002022;
+  --color-on-primary-fixed-variant: #004f53;
+  --color-inverse-primary: #00696f;
+
+  --color-secondary: #cdbdff;
+  --color-secondary-container: #5203d5;
+  --color-secondary-fixed: #e8deff;
+  --color-secondary-fixed-dim: #cdbdff;
+  --color-on-secondary: #370096;
+  --color-on-secondary-container: #c0acff;
+  --color-on-secondary-fixed: #20005f;
+  --color-on-secondary-fixed-variant: #4f00d0;
+
+  --color-tertiary: #fff6e4;
+  --color-tertiary-container: #fed83a;
+  --color-tertiary-fixed: #ffe173;
+  --color-tertiary-fixed-dim: #e8c423;
+  --color-on-tertiary: #3b2f00;
+  --color-on-tertiary-container: #725e00;
+  --color-on-tertiary-fixed: #221b00;
+  --color-on-tertiary-fixed-variant: #554500;
+
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
+
+  --color-on-surface: #dce4e4;
+  --color-on-surface-variant: #b9cacb;
+  --color-on-background: #dce4e4;
+  --color-outline: #849495;
+  --color-outline-variant: #3a494b;
+  --color-inverse-surface: #dce4e4;
+  --color-inverse-on-surface: #2a3232;
+
+  /* ── Font families ── */
+  /* 'Inter' loads from CDN link tag in layout.tsx; system fonts are fallbacks */
+  --font-family-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+  /* ── Border radius ── */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* ── Light Theme Overrides (matched to Stitch design) ───────────────────── */
+.light {
+  /* Page & surface backgrounds — clean white */
+  --color-background: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-surface-dim: #eef1f4;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f9fafb;
+  --color-surface-container: #f3f4f6;
+  --color-surface-container-high: #e9ecef;
+  --color-surface-container-highest: #dee2e6;
+  --color-surface-bright: #ffffff;
+  --color-surface-variant: #e9ecef;
+  --color-surface-tint: #0d9488;
+
+  /* Primary — dark navy (matches Stitch sidebar & buttons) */
+  --color-primary: #ffffff;
+  --color-primary-container: #0f1f2e;
+  --color-primary-fixed: #1e3a52;
+  --color-primary-fixed-dim: #0f1f2e;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #ffffff;
+  --color-on-primary-fixed: #ffffff;
+  --color-on-primary-fixed-variant: #e2e8f0;
+  --color-inverse-primary: #0d9488;
+
+  /* Secondary — teal accent (active states, highlights, status dots) */
+  --color-secondary: #0d9488;
+  --color-secondary-container: #ccfbf1;
+  --color-secondary-fixed: #99f6e4;
+  --color-secondary-fixed-dim: #0d9488;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #0f766e;
+  --color-on-secondary-fixed: #042f2e;
+  --color-on-secondary-fixed-variant: #0f766e;
+
+  /* Tertiary — amber/orange for warnings (regression alerts) */
+  --color-tertiary: #92400e;
+  --color-tertiary-container: #fef3c7;
+  --color-tertiary-fixed: #fde68a;
+  --color-tertiary-fixed-dim: #d97706;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #92400e;
+  --color-on-tertiary-fixed: #451a03;
+  --color-on-tertiary-fixed-variant: #b45309;
+
+  /* Error — red for failed/regressed states */
+  --color-error: #dc2626;
+  --color-error-container: #fee2e2;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #991b1b;
+
+  /* Text */
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #4b5563;
+  --color-on-background: #0f172a;
+
+  /* Borders */
+  --color-outline: #9ca3af;
+  --color-outline-variant: #e5e7eb;
+
+  /* Inverse (used for toasts/chips on dark bg) */
+  --color-inverse-surface: #1e293b;
+  --color-inverse-on-surface: #f8fafc;
+}
+
+/* ── Base styles ─────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(at 0% 0%, hsla(183, 100%, 50%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(262, 100%, 70%, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: var(--color-on-surface);
+    font-family: var(--font-family-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined', sans-serif !important;
+    font-weight: normal;
+    font-style: normal;
+    font-size: 1.25rem;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    vertical-align: middle;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'liga';
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(132, 148, 149, 0.3);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(132, 148, 149, 0.5); }
+}
+
+/* ── Glassmorphism components (from Stitch) ────────────────────────────────── */
+@layer components {
+  /* Sidebar, section panels */
+  .glass-panel {
+    background: rgba(21, 29, 30, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* KPI cards, table rows */
+  .glass-card {
+    background: rgba(35, 43, 44, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  }
+
+  /* ── Light Theme Component Overrides ───────────────────────────────────── */
+  .light .glass-panel {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--color-outline-variant);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .light .glass-card {
+    background: #ffffff;
+    border: 1px solid var(--color-outline-variant);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+  }
+
+  .light .btn-primary {
+    background-color: var(--color-primary-container);
+    color: var(--color-on-primary-container);
+    border-color: var(--color-primary-container);
+    box-shadow: 0 4px 6px -1px rgba(13, 148, 136, 0.2);
+  }
+  .light .btn-primary:hover {
+    background-color: var(--color-inverse-primary);
+  }
+
+  .light .btn-ghost {
+    color: var(--color-on-surface-variant);
+    border-color: transparent;
+  }
+  .light .btn-ghost:hover {
+    color: var(--color-on-surface);
+    background: rgba(15, 23, 42, 0.05);
+  }
+
+  .light .input-field {
+    background: #ffffff;
+    border-color: var(--color-outline-variant);
+  }
+  .light .input-field:focus {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  }
+
+  .light .badge-neutral {
+    background: var(--color-surface-container);
+    border-color: var(--color-outline-variant);
+    color: var(--color-on-surface-variant);
+  }
+  
+  /* Primary CTA button — cyan (Dark Theme Default) */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-primary-container);
+    color: var(--color-on-primary-container);
+    font-weight: 600;
+    font-size: 0.875rem;
+    border: 1px solid var(--color-primary-container);
+    box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    background-color: color-mix(in srgb, var(--color-primary-container) 90%, transparent);
+    box-shadow: 0 0 25px rgba(0, 242, 254, 0.35);
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    color: var(--color-on-surface-variant);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.75rem;
+    font-family: var(--font-family-mono);
+    letter-spacing: 0.05em;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    background: transparent;
+  }
+  .btn-ghost:hover {
+    color: var(--color-on-surface);
+    background: rgba(255,255,255,0.05);
+  }
+
+  /* Input field */
+  .input-field {
+    width: 100%;
+    background: rgba(35, 43, 44, 0.6);
+    border: 1px solid var(--color-outline-variant);
+    color: var(--color-on-surface);
+    border-radius: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-field::placeholder { color: var(--color-on-surface-variant); }
+  .input-field:focus {
+    border-color: color-mix(in srgb, var(--color-primary-container) 70%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary-container) 15%, transparent);
+  }
+
+  /* Status badges */
+  .badge-success {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.125rem 0.5rem; border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+    color: var(--color-primary); font-size: 0.75rem; font-weight: 500;
+  }
+  .badge-error {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.125rem 0.5rem; border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-error) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-error) 20%, transparent);
+    color: var(--color-error); font-size: 0.75rem; font-weight: 500;
+  }
+  .badge-warning {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.125rem 0.5rem; border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-tertiary-container) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-tertiary-container) 20%, transparent);
+    color: var(--color-tertiary-container); font-size: 0.75rem; font-weight: 500;
+  }
+  .badge-neutral {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0.125rem 0.5rem; border-radius: 9999px;
+    background: rgba(35,43,44,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--color-on-surface-variant); font-size: 0.75rem; font-weight: 500;
+  }
+
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dot-success { background: var(--color-primary); box-shadow: 0 0 5px rgba(0,242,254,0.8); }
+  .dot-error { background: var(--color-error); box-shadow: 0 0 5px rgba(255,180,171,0.8); }
+  .dot-warning { background: var(--color-tertiary-container); box-shadow: 0 0 5px rgba(254,216,58,0.8); }
+
+  .mono { font-family: var(--font-family-mono); letter-spacing: 0.05em; }
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@layer utilities {
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 6px rgba(0,242,254,0.3); }
+    50%       { box-shadow: 0 0 18px rgba(0,242,254,0.7); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
+  .animate-slide-in { animation: slideIn 0.3s ease-out both; }
+  .animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+  .animate-spin { animation: spin 0.8s linear infinite; }
+
+  .delay-1 { animation-delay: 50ms; }
+  .delay-2 { animation-delay: 100ms; }
+  .delay-3 { animation-delay: 150ms; }
+  .delay-4 { animation-delay: 200ms; }
+}

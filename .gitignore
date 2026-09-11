@@ -1,0 +1,67 @@
+# ── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# ── Build output (never in source control) ───────────────────────────────
+build/
+dist/
+dist-installer/
+out/
+*.spec.bak
+
+# PyInstaller / Tauri sidecar binaries — rebuilt from source, ~60 MB each
+src-tauri/binaries/
+src-tauri/target/
+src-tauri/gen/
+
+# ── Node / Next.js ───────────────────────────────────────────────────────
+node_modules/
+.next/
+.npm/
+*.tsbuildinfo
+
+# ── Tests & coverage ─────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# ── Local databases & runtime state ──────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+storage/
+
+# ── Secrets — never commit ───────────────────────────────────────────────
+.env
+*.env
+!.env.example
+keys/
+*.pem
+*.key
+
+# ── Logs & archives ──────────────────────────────────────────────────────
+*.log
+pip_install.log
+*.rar
+*.zip
+*.7z
+
+# ── IDEs & OS ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

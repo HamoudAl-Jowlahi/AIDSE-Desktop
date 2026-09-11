@@ -1,0 +1,30 @@
+=============================================================================
+AIDSE Desktop — Privacy Commitment & License Agreement
+=============================================================================
+
+1. LOCAL-FIRST PRIVACY GUARANTEE
+AIDSE Desktop is designed to protect your sensitive data. All dataset
+ingestion, data profiling, machine learning model training (Optuna, Scikit-Learn,
+XGBoost, LightGBM, CatBoost), explainable AI calculations (SHAP), and model
+evaluations execute 100% locally on your computer.
+
+2. DATA ENCRYPTION AT REST
+Your workspace data, projects, and evaluation results are encrypted at rest
+using AES-256 SQLCipher encryption. Your master encryption key is generated
+locally and secured within your operating system's native credential vault
+(Windows Credential Manager).
+
+3. ZERO EXTERNAL NETWORK TRANSMISSION BY DEFAULT
+AIDSE does not send telemetry, analytics, dataset rows, or trained model
+weights to external servers. No cloud account or external authentication is
+required to use AIDSE Desktop.
+
+4. OPTIONAL CLOUD FEATURES
+If you explicitly choose to configure an external LLM Judge evaluation
+strategy, you must supply your own API key. AIDSE clearly alerts you before
+any prompt or output text is transmitted to your configured provider.
+
+5. LICENSE GRANT
+Permission is granted to install and run AIDSE Desktop locally on your
+workstation for single-user data science and model evaluation workflows.
+=============================================================================
