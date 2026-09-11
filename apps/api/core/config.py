@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
     # Echo every SQL statement to the console — off by default (log noise)
     SQL_ECHO: bool = False
+    # When no Celery broker is reachable, run AutoML training in-process instead.
+    # This is how the desktop build trains (there is no Redis). Turned off in the
+    # test suite so dispatching an experiment does not fit real models.
+    LOCAL_TRAINING_FALLBACK: bool = True
     # Brute-force protection on auth endpoints (Section 13.6)
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_AUTH: str = "5/minute"

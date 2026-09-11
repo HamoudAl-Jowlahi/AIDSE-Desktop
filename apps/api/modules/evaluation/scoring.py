@@ -24,6 +24,10 @@ STRATEGIES = ("exact", "regex", "semantic", "llm_judge")
 DEFAULT_SEMANTIC_THRESHOLD = 0.80
 DEFAULT_REGEX_FLAGS = re.IGNORECASE
 
+# Longest string a regex strategy will match against. Bounds the cost of a
+# pattern that backtracks catastrophically; well above any realistic LLM output.
+_REGEX_SUBJECT_LIMIT = 100_000
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Individual strategies
@@ -50,11 +54,18 @@ def score_regex(expected: str, actual: str, params: dict[str, Any] | None = None
     """
     params = params or {}
     flags = re.IGNORECASE if params.get("case_insensitive", True) else 0
+
+    # Python's `re` has no execution timeout, so a catastrophically backtracking
+    # pattern would run unbounded. Capping the subject length bounds the blow-up
+    # to something a user can wait out. The caller also runs this off the event
+    # loop, so a slow pattern degrades one evaluation rather than the whole app.
+    subject = (actual or "")[:_REGEX_SUBJECT_LIMIT]
+
     try:
         matched = (
-            re.fullmatch(expected or "", actual or "", flags)
+            re.fullmatch(expected or "", subject, flags)
             if params.get("full_match")
-            else re.search(expected or "", actual or "", flags)
+            else re.search(expected or "", subject, flags)
         )
     except re.error as exc:
         return {

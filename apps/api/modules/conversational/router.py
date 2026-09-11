@@ -9,6 +9,7 @@ DELETE /projects/{pid}/chat        — clear the conversation for a scope
 Every assistant answer carries its tool-usage audit trail, so users can see
 exactly which tools produced which numbers.
 """
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -126,7 +127,10 @@ async def send_chat_message(
         "_global_explanation": global_explanation or {},
     }
 
-    result = analyze_question(payload.message, profile, context_payload)
+    # analyze_question is synchronous and, when an LLM provider is configured,
+    # issues blocking httpx calls (up to MAX_LLM_ITERATIONS × LLM_TIMEOUT_SECONDS).
+    # Running it on the event loop froze the whole app for the duration.
+    result = await asyncio.to_thread(analyze_question, payload.message, profile, context_payload)
 
     # ── Persist conversation ─────────────────────────────────────────────────
     conversation = await _get_or_create_conversation(db, project_id, payload.dataset_id)
@@ -200,6 +204,8 @@ async def clear_conversation(
 
 async def _build_plan_safe(profile: dict) -> dict:
     try:
-        return build_recommendation(profile)
+        # build_recommendation may narrate via a blocking LLM call — keep it
+        # off the event loop.
+        return await asyncio.to_thread(build_recommendation, profile)
     except Exception:  # noqa: BLE001 — chat must survive plan failures
         return {}

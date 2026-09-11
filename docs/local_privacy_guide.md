@@ -10,7 +10,11 @@ Welcome to **AIDSE Desktop**! AIDSE is designed as a **local-first desktop platf
 When you import datasets, train AutoML models with Optuna/XGBoost/LightGBM/CatBoost, generate SHAP feature explanations, or evaluate model accuracy, **everything happens locally on your computer's CPU and GPU**. Your raw datasets are never uploaded to any cloud server or third-party analytics system.
 
 ### 2. Encrypted Data at Rest
-All projects, dataset versions, data prep steps, and model evaluation metrics are stored in a local SQLite database protected by **AES-256 SQLCipher encryption**. Your encryption key is stored securely in your operating system's native key vault (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
+All projects, dataset versions, data prep steps, and model evaluation metrics are stored in a local SQLite database in your own user profile. Nothing is uploaded.
+
+The database file itself is **not** encrypted: anyone who can read your Windows user profile can read it, exactly as they could read any other file you own. Rely on your operating system account and full-disk encryption (BitLocker / FileVault / LUKS) to protect it.
+
+One thing is encrypted regardless: if you configure an LLM provider, your **API key** is stored encrypted with a 256-bit secret unique to your installation, kept in your operating system's credential store (Windows Credential Manager, macOS Keychain, Linux Secret Service). Copying the database file to another machine will not reveal that key.
 
 ### 3. No Account or Credentials Required
 AIDSE Desktop runs completely offline. You do not need to create an account, log in with an email/password, or sign up for a cloud subscription.

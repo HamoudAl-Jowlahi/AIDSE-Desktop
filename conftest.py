@@ -16,6 +16,13 @@ import os
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 os.environ.setdefault("CELERY_TASK_EAGER_PROPAGATES", "true")
+# No broker runs in CI, so dispatching an experiment would otherwise fall back to
+# fitting real models in-process and make the suite take minutes. Tests that want
+# training exercise the service layer directly.
+os.environ.setdefault("LOCAL_TRAINING_FALLBACK", "false")
+# Deterministic key material so the vault never touches the developer's real
+# OS credential store during a test run.
+os.environ.setdefault("AIDSE_APP_SECRET", "0" * 64)
 
 from collections.abc import AsyncGenerator
 

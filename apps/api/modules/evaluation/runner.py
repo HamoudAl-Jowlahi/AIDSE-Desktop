@@ -15,6 +15,7 @@ is fast; a broker round-trip adds fragility without V1 benefit.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -86,7 +87,13 @@ async def execute_run(
                     f"No actual output supplied for case {case_id_str}. "
                     "Provide actual_outputs or configure an evaluation provider."
                 )
-            scored = score_case(strategy, case.expected_output, actual, scoring_params)
+            # score_case can block for a long time: `regex` runs a user-authored
+            # pattern with no engine timeout (a catastrophic one backtracks
+            # indefinitely), and `llm_judge` makes a synchronous HTTP call.
+            # Keep both off the event loop so the UI stays responsive.
+            scored = await asyncio.to_thread(
+                score_case, strategy, case.expected_output, actual, scoring_params
+            )
 
             status_word = "pass" if scored["passed"] else "fail"
             db.add(models.EvaluationResult(

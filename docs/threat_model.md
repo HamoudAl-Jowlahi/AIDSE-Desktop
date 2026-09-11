@@ -13,7 +13,7 @@ This document enumerates all potential data exit paths, verifying that each is e
 ### Path 1: Datasets, Versions & Data Preprocessing
 - **Data Flow**: Ingestion, profiling, target detection, transformations, quality checks, and export.
 - **Location**: Executed entirely within local Python FastAPI sidecar process.
-- **Storage**: Saved to local SQLite database encrypted at rest via AES-256 SQLCipher (`aidse.db`).
+- **Storage**: Saved to a local SQLite database (`aidse.db`) in the per-user data directory. The database file itself is **not** encrypted — see "Data at rest" below.
 - **Verdict**: 🔒 **100% Local-Only**. Zero network egress.
 
 ### Path 2: AutoML Model Training & Hyperparameter Tuning
@@ -43,6 +43,12 @@ This document enumerates all potential data exit paths, verifying that each is e
 
 ## Local Network Isolation Controls
 
-1. **Loopback Binding**: FastAPI/Uvicorn binds strictly to `127.0.0.1` on a dynamically allocated free port (`find_free_loopback_port()`). Public binding (`0.0.0.0`) is enforced as forbidden and blocked by runtime configuration guards.
-2. **Internal Session Token**: Every HTTP request between Tauri frontend and FastAPI sidecar is authenticated with a cryptographically strong 256-bit token (`X-AIDSE-Internal-Token`) generated at startup and shared strictly via in-memory process environment. Unauthenticated requests are rejected with `403 Forbidden`.
-3. **Data Encryption at Rest**: SQLite database is encrypted using SQLCipher. The encryption key is generated at first launch and stored securely in OS-native credential storage (Windows Credential Manager / macOS Keychain / Linux Secret Service).
+1. **Loopback Binding**: FastAPI/Uvicorn binds strictly to `127.0.0.1`. Public binding (`0.0.0.0`) is rejected at startup by `validate_host_binding()`. The port is currently **fixed at 8010**, falling forward to the next free port when taken — it is not randomized. A `find_free_loopback_port()` helper exists but is not yet on the startup path.
+
+2. **Internal Session Token**: ⚠️ **Not active.** `InternalTokenMiddleware` is implemented and enforces `X-AIDSE-Internal-Token` correctly *when* `AIDSE_INTERNAL_TOKEN` is set — but nothing sets it. The launcher passes no token and the Tauri shell hardcodes an empty one, so the middleware currently passes every request through. Combined with desktop mode's automatic admin session, **any process running as the same user can call the full API**. Scheduled for the Tauri integration work; until then this is the application's main local-privilege gap.
+
+3. **Data at rest**: The SQLite database is **not** encrypted; the file carries a standard `SQLite format 3` header and opens with any SQLite client. Whole-database encryption would require SQLCipher and a different driver, and is not implemented.
+
+   What *is* protected: sensitive column values — today the LLM provider API key — are encrypted with Fernet (AES-128-CBC + HMAC) under a 256-bit per-install secret stored in the OS credential store (`apps/api/db/vault.py`). Copying the database to another machine does not expose them.
+
+   Users should rely on their OS account plus full-disk encryption for the dataset contents themselves.

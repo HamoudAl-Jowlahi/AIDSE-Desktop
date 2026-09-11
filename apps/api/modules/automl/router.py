@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import uuid
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +12,43 @@ from apps.api.core.dependencies import require_project_role, ProjectRole
 from apps.api.modules.automl import schemas, models
 from apps.api.modules.automl.evaluation import build_evaluation
 from apps.api.modules.datasets.models import Dataset
+
+logger = logging.getLogger("aidse.automl")
+
+# asyncio holds only a weak reference to a running task, so a bare
+# create_task() can be garbage-collected mid-training and vanish silently.
+# Keeping a strong reference until the task completes is the documented fix.
+_background_training: set[asyncio.Task] = set()
+
+
+def _spawn_local_training(experiment_id: str) -> None:
+    """Run an experiment in-process and keep the task alive until it finishes."""
+    from apps.api.core.config import get_settings
+    from apps.api.modules.automl.service import _run_automl_async
+
+    if not get_settings().LOCAL_TRAINING_FALLBACK:
+        logger.info(
+            "No broker reachable and the local training fallback is disabled; "
+            "experiment %s stays pending.", experiment_id,
+        )
+        return
+
+    task = asyncio.create_task(_run_automl_async(experiment_id))
+    _background_training.add(task)
+
+    def _done(finished: asyncio.Task) -> None:
+        _background_training.discard(finished)
+        if finished.cancelled():
+            logger.warning("Training task for experiment %s was cancelled.", experiment_id)
+            return
+        exc = finished.exception()
+        if exc is not None:
+            logger.error(
+                "Training task for experiment %s failed: %s", experiment_id, exc,
+                exc_info=exc,
+            )
+
+    task.add_done_callback(_done)
 
 try:
     from services.worker.tasks.training_tasks import run_automl_experiment
@@ -78,20 +117,14 @@ async def create_experiment(
     stmt_exp = select(models.Experiment).where(models.Experiment.id == experiment.id).options(selectinload(models.Experiment.trials))
     experiment = (await db.execute(stmt_exp)).scalar_one()
 
-    # Dispatch Celery Task if broker is reachable; otherwise fallback to executing
-    # training in a local background task so training succeeds without requiring Redis.
+    # Dispatch to Celery when a broker is reachable; otherwise run training in a
+    # local background task so it works without Redis (the desktop default).
     try:
-        if run_automl_experiment is not None:
-            if getattr(run_automl_experiment.delay, "_is_mock", False) or hasattr(run_automl_experiment.delay, "assert_called"):
-                run_automl_experiment.delay(str(experiment.id))
-            else:
-                run_automl_experiment.apply_async(args=[str(experiment.id)], connect_timeout=1)
-        else:
+        if run_automl_experiment is None:
             raise RuntimeError("Celery tasks not available")
-    except Exception as exc:  # Celery/Redis not running in local desktop mode
-        from apps.api.modules.automl.service import _run_automl_async
-        import asyncio
-        asyncio.create_task(_run_automl_async(str(experiment.id)))
+        run_automl_experiment.apply_async(args=[str(experiment.id)], connect_timeout=1)
+    except Exception:  # Celery/Redis not running in local desktop mode
+        _spawn_local_training(str(experiment.id))
 
     return experiment
 

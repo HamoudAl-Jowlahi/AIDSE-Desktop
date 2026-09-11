@@ -1,66 +1,143 @@
 """
-AIDSE Platform — Data Encryption Key Vault
-Section 4: Data Encryption at Rest & OS Secure Storage
+AIDSE Platform — Per-Install Secret Vault
 
-Manages creation, secure storage, and retrieval of the SQLCipher master encryption key
-using OS-native secure credential stores (Windows Credential Manager, macOS Keychain, Linux Secret Service).
+Holds one 256-bit secret per installation, used to derive the key that
+encrypts sensitive column values (see apps/api/core/crypto.py) — today that
+is the user's LLM provider API key.
+
+Storage order:
+  1. AIDSE_APP_SECRET environment variable (CI, tests, server deployments)
+  2. OS-native credential store via `keyring`
+     (Windows Credential Manager / macOS Keychain / Linux Secret Service)
+  3. A 0600 file inside the AIDSE data directory
+
+Scope, stated plainly: this protects stored secrets from casual inspection of
+the database file. It is NOT full-database encryption — the SQLite file itself
+is readable. Whole-database encryption would require SQLCipher and a different
+driver; it is not implemented, and nothing here should be described as if it
+were.
 """
 from __future__ import annotations
 
+import logging
 import os
 import secrets
-import logging
+import stat
+from pathlib import Path
 
 logger = logging.getLogger("aidse.vault")
 
 SERVICE_NAME = "AIDSE_Platform_Desktop"
-ACCOUNT_NAME = "database_encryption_key"
+ACCOUNT_NAME = "app_secret"
+_SECRET_FILENAME = "app_secret.key"
+
+# Cached so a keyring prompt or file read happens once per process.
+_cached_secret: str | None = None
 
 
-def get_or_create_db_encryption_key() -> str:
-    """
-    Retrieves the 256-bit database encryption key from OS secure credential storage.
-    If no key exists, generates a fresh random 256-bit hex token, stores it securely, and returns it.
-    """
-    # Allow explicit environment override if provided in CI/test runner
-    env_key = os.getenv("AIDSE_DB_ENCRYPTION_KEY")
-    if env_key:
-        return env_key
+def _secret_file() -> Path:
+    from apps.api.core.storage import get_aidse_data_dir
 
+    return get_aidse_data_dir() / _SECRET_FILENAME
+
+
+def _read_secret_file() -> str | None:
+    path = _secret_file()
+    if not path.is_file():
+        return None
     try:
-        import keyring
-        existing_key = keyring.get_password(SERVICE_NAME, ACCOUNT_NAME)
-        if existing_key:
-            return existing_key
-
-        # Generate a new 256-bit cryptographically secure key
-        new_key = secrets.token_hex(32)
-        try:
-            keyring.set_password(SERVICE_NAME, ACCOUNT_NAME, new_key)
-            logger.info("Generated and stored new SQLCipher database encryption key in OS keyring.")
-        except Exception as exc:
-            logger.warning(f"Keyring storage failed, using persistent key fallback: {exc}")
-            return new_key
-
-        return new_key
-    except ImportError:
-        logger.warning("keyring module not available, generating runtime key")
-        return secrets.token_hex(32)
+        value = path.read_text(encoding="utf-8").strip()
+        return value or None
+    except OSError as exc:
+        logger.warning("Could not read the secret file at %s: %s", path, exc)
+        return None
 
 
-def is_database_encrypted_with_key(db_path: str, key: str) -> bool:
-    """
-    Verifies if a raw .db file is encrypted (header differs from plain SQLite)
-    and unreadable without going through the app's SQLCipher key retrieval path.
-    """
-    if not os.path.exists(db_path):
+def _write_secret_file(secret: str) -> bool:
+    """Persist the secret with owner-only permissions. Returns success."""
+    path = _secret_file()
+    try:
+        path.write_text(secret, encoding="utf-8")
+        # POSIX: 0600. On Windows the file already sits in the per-user
+        # LOCALAPPDATA tree, which other standard users cannot read.
+        if os.name != "nt":
+            path.chmod(stat.S_IRUSR | stat.S_IWUSR)
         return True
-
-    with open(db_path, "rb") as f:
-        header = f.read(16)
-
-    # Standard unencrypted SQLite DB files start with header b"SQLite format 3\x00"
-    if header == b"SQLite format 3\x00":
+    except OSError as exc:
+        logger.error("Could not persist the app secret to %s: %s", path, exc)
         return False
 
-    return True
+
+def get_or_create_app_secret() -> str:
+    """
+    Return this installation's 256-bit hex secret, creating it on first use.
+
+    Never returns a throwaway value: a secret that could not be persisted
+    anywhere would silently make every previously encrypted column
+    undecryptable on the next launch, so that case raises instead.
+    """
+    global _cached_secret
+    if _cached_secret:
+        return _cached_secret
+
+    env_secret = os.getenv("AIDSE_APP_SECRET")
+    if env_secret:
+        _cached_secret = env_secret
+        return _cached_secret
+
+    keyring_available = False
+    try:
+        import keyring
+
+        keyring_available = True
+        existing = keyring.get_password(SERVICE_NAME, ACCOUNT_NAME)
+        if existing:
+            _cached_secret = existing
+            return _cached_secret
+    except ImportError:
+        logger.warning(
+            "The `keyring` package is not installed, so the app secret cannot "
+            "be stored in the OS credential store. Falling back to a file."
+        )
+    except Exception as exc:  # locked keyring, no backend, D-Bus missing…
+        logger.warning("OS credential store unavailable (%s); falling back to a file.", exc)
+
+    file_secret = _read_secret_file()
+    if file_secret:
+        _cached_secret = file_secret
+        return _cached_secret
+
+    new_secret = secrets.token_hex(32)
+    stored = False
+
+    if keyring_available:
+        try:
+            import keyring
+
+            keyring.set_password(SERVICE_NAME, ACCOUNT_NAME, new_secret)
+            stored = True
+            logger.info("Created a new app secret in the OS credential store.")
+        except Exception as exc:
+            logger.warning("Could not write to the OS credential store: %s", exc)
+
+    if not stored:
+        stored = _write_secret_file(new_secret)
+        if stored:
+            logger.info("Created a new app secret at %s.", _secret_file())
+
+    if not stored:
+        raise RuntimeError(
+            "Could not store the application secret in either the OS credential "
+            f"store or {_secret_file()}. Refusing to continue with a throwaway "
+            "key, which would make saved provider credentials unreadable after "
+            "restart. Check the permissions on the AIDSE data directory."
+        )
+
+    _cached_secret = new_secret
+    return _cached_secret
+
+
+def reset_cache() -> None:
+    """Drop the in-process cache. For tests that swap the backing store."""
+    global _cached_secret
+    _cached_secret = None

@@ -183,7 +183,6 @@ def _set_startup_registry(enable: bool) -> None:
                     exe_resolved.parents[1] / "Launch-AIDSE.vbs",
                     exe_resolved.parent / "Launch-AIDSE.vbs",
                     Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "AIDSE Desktop" / "Launch-AIDSE.vbs",
-                    Path(r"C:\Users\Hamoud KJ\Desktop\AI Projects  Researches\AIDSE Project\aidse-desktop\Launch-AIDSE.vbs"),
                 ]
                 launcher_vbs = None
                 for cand in candidates:

@@ -46,12 +46,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 import apps.api.modules.automl.models  # noqa
                 import apps.api.modules.conversational.models  # noqa
 
-                # Validate SQLite schema: if any tables were created with legacy UUID affinity,
-                # drop them so create_all recreates with matching CHAR(32) affinity
+                # Early builds stored UUIDs with native UUID affinity; the models now
+                # use CHAR(32). A mismatched table still reads and writes correctly in
+                # SQLite (affinity is advisory), so report it and let a migration fix
+                # it — never drop the table, which would destroy the user's work.
+                import logging as _logging
                 tbl_rows = (await conn.execute(text("SELECT name, sql FROM sqlite_master WHERE type='table'"))).fetchall()
-                for t_name, t_sql in tbl_rows:
-                    if t_sql and "UUID" in t_sql and t_name not in ("users", "alembic_version"):
-                        await conn.execute(text(f"DROP TABLE IF EXISTS {t_name}"))
+                legacy = [
+                    t_name for t_name, t_sql in tbl_rows
+                    if t_sql and "UUID" in t_sql and t_name not in ("users", "alembic_version")
+                ]
+                if legacy:
+                    _logging.getLogger("aidse").warning(
+                        "Tables still using legacy UUID affinity: %s. They remain "
+                        "readable; write a migration to convert them to CHAR(32).",
+                        ", ".join(legacy),
+                    )
 
                 await conn.run_sync(Base.metadata.create_all)
 

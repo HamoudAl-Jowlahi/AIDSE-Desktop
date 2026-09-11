@@ -10,8 +10,8 @@ All data processing, dataset intelligence, AutoML model tuning (Optuna/Scikit-Le
 
 - **Desktop Engine**: Tauri v2 (Rust shell) + Native WebView (WebView2 / WebKit)
 - **Backend API**: FastAPI (Python 3.11–3.14) running as a Tauri sidecar process
-- **Database**: Async SQLAlchemy 2.0 with **AES-256 SQLCipher encryption at rest**
-- **Security**: OS-native secure credential store key vault (Windows Credential Manager / macOS Keychain / Linux Secret Service) + `X-AIDSE-Internal-Token` header verification + strict loopback-only binding (`127.0.0.1:<random_port>`).
+- **Database**: Async SQLAlchemy 2.0 over local SQLite
+- **Security**: stored provider API keys are encrypted (Fernet) with a per-install 256-bit secret held in the OS credential store (Windows Credential Manager / macOS Keychain / Linux Secret Service); the API binds to loopback only (`127.0.0.1`).
 - **Frontend**: Next.js 15 (App Router, static export), React 19, Tailwind v4, forced dark glassmorphic theme.
 
 ---
@@ -52,7 +52,7 @@ npx tauri dev
 
 ## 🧪 Automated Test Suite
 
-To execute the 232 automated tests (100% pass rate guaranteed):
+To execute the automated test suite:
 ```bash
 .\.venv\Scripts\pytest
 ```

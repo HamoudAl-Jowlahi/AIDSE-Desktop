@@ -18,7 +18,6 @@ from apps.api.core.config import get_settings
 settings = get_settings()
 
 from sqlalchemy import event
-from apps.api.db.vault import get_or_create_db_encryption_key
 
 # Configure engine parameters depending on dialect (SQLite vs Postgres)
 engine_kwargs = {
@@ -41,19 +40,22 @@ engine = create_async_engine(
     **engine_kwargs
 )
 
-# Attach SQLCipher encryption key and durability pragmas for SQLite databases
+# Durability and integrity pragmas for SQLite.
+#
+# There is deliberately no `PRAGMA key` here. This engine talks to SQLite
+# through aiosqlite/the stdlib `sqlite3` module, where `PRAGMA key` is a
+# silent no-op — it accepted the statement and wrote a plaintext database,
+# which is what earlier builds shipped while the docs claimed SQLCipher.
+# Sensitive column values are encrypted at the application layer instead
+# (apps/api/core/crypto.py).
 if "sqlite" in settings.DATABASE_URL:
     @event.listens_for(engine.sync_engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
-        key = get_or_create_db_encryption_key()
         cursor = dbapi_connection.cursor()
         try:
-            cursor.execute(f"PRAGMA key = '{key}'")
             cursor.execute("PRAGMA foreign_keys = ON;")
             cursor.execute("PRAGMA journal_mode = WAL;")
             cursor.execute("PRAGMA synchronous = NORMAL;")
-        except Exception:
-            pass
         finally:
             cursor.close()
 

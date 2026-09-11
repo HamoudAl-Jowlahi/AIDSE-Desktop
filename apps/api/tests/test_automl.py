@@ -29,14 +29,16 @@ async def test_create_and_list_experiments(
     assert ds_resp.status_code == 201
     dataset_id = ds_resp.json()["id"]
 
-    # 3. Create an AutoML Experiment and Mock Celery
+    # 3. Create an AutoML Experiment; the router dispatches via Celery's
+    #    apply_async (the path production actually takes — it passes
+    #    connect_timeout so an unreachable broker fails fast).
     payload = {
         "target_column": "price",
         "problem_type": "regression",
         "primary_metric": "rmse"
     }
 
-    with patch("apps.api.modules.automl.router.run_automl_experiment.delay") as mock_delay:
+    with patch("apps.api.modules.automl.router.run_automl_experiment.apply_async") as mock_dispatch:
         exp_resp = await client.post(
             f"/api/v1/projects/{project_id}/datasets/{dataset_id}/automl/experiments",
             json=payload,
@@ -49,9 +51,8 @@ async def test_create_and_list_experiments(
         assert exp_data["target_column"] == "price"
         assert exp_data["problem_type"] == "regression"
         assert exp_data["status"] == "pending"
-        
-        # Verify Celery task was dispatched
-        mock_delay.assert_called_once_with(experiment_id)
+
+        mock_dispatch.assert_called_once_with(args=[experiment_id], connect_timeout=1)
 
     # 4. List Experiments
     list_resp = await client.get(
