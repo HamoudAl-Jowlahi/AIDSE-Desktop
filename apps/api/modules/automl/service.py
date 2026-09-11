@@ -321,16 +321,25 @@ async def _run_automl_async(experiment_id: str):
                 val = await asyncio.to_thread(objective, trial)
                 study.tell(trial, val)
 
+                # Pass metrics through untouched: ModelTrial's init listener is
+                # the single place they are made JSON-safe, and it preserves the
+                # nested confusion_matrix / per_class merged in above. A second
+                # filter here used to keep only top-level scalars and discard
+                # them, which is why the confusion matrix never reached the UI.
                 metrics = trial.user_attrs.get("metrics", {})
-                clean_metrics = {k: float(v) for k, v in metrics.items() if isinstance(v, (int, float))}
-                primary_score = clean_metrics.get(experiment.primary_metric)
+                primary = metrics.get(experiment.primary_metric)
+                primary_score = (
+                    float(primary)
+                    if isinstance(primary, (int, float)) and not isinstance(primary, bool)
+                    else None
+                )
                 algo = trial.params.get("algorithm")
 
                 model_trial = ModelTrial(
                     experiment_id=experiment.id,
                     algorithm_name=algo,
                     hyperparameters=trial.user_attrs.get("params", {}),
-                    metrics=clean_metrics,
+                    metrics=metrics,
                     primary_metric_score=primary_score,
                     mlflow_run_id=trial.user_attrs.get("mlflow_run_id"),
                     is_best=False,

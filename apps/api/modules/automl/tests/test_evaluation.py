@@ -235,3 +235,102 @@ async def test_evaluation_endpoint(client: AsyncClient, auth_headers: dict, db):
     recall = next(m for m in body["metrics"] if m["metric"] == "recall")
     assert "%" in recall["interpretation"]
     assert len(body["per_class"]) == 2
+
+
+# ── Regression: nested evaluation artifacts must survive persistence ────────
+#
+# The tests above build trials from FakeTrial, a plain class, so the SQLAlchemy
+# listeners on ModelTrial never run against them. Those listeners used to keep
+# only top-level int/float entries, which deleted confusion_matrix and
+# per_class on write and again on load — the confusion matrix could never
+# reach the UI, and nothing failed. These use the real mapped class.
+
+
+def test_model_trial_keeps_nested_artifacts_at_construction():
+    """The init listener must coerce types without dropping structure."""
+    trial = ModelTrial(
+        experiment_id=uuid.uuid4(),
+        algorithm_name="logistic_regression",
+        hyperparameters={},
+        metrics=dict(CLASSIFICATION_METRICS),
+        primary_metric_score=0.84,
+        status="completed",
+    )
+
+    assert trial.metrics["confusion_matrix"]["matrix"] == [[70, 5], [7, 18]]
+    assert trial.metrics["confusion_matrix"]["labels"] == ["no", "yes"]
+    assert set(trial.metrics["per_class"]) == {"no", "yes"}
+    assert trial.metrics["accuracy"] == 0.88
+
+
+def test_numpy_values_are_coerced_but_nesting_is_kept():
+    """
+    Coercion exists because numpy scalars are not JSON-serializable. It must
+    reach inside nested structures rather than deleting them.
+    """
+    import json
+
+    import numpy as np
+
+    trial = ModelTrial(
+        experiment_id=uuid.uuid4(),
+        algorithm_name="random_forest",
+        hyperparameters={},
+        metrics={
+            "accuracy": np.float64(0.91),
+            "confusion_matrix": {"labels": ["a", "b"], "matrix": np.array([[8, 1], [2, 9]])},
+            "per_class": {"a": {"support": np.int64(9)}},
+        },
+        primary_metric_score=0.91,
+        status="completed",
+    )
+
+    # Serializable is the whole point of the coercion.
+    json.dumps(trial.metrics)
+
+    assert trial.metrics["accuracy"] == pytest.approx(0.91)
+    assert trial.metrics["confusion_matrix"]["matrix"] == [[8, 1], [2, 9]]
+    assert trial.metrics["per_class"]["a"]["support"] == 9
+
+
+@pytest.mark.asyncio
+async def test_nested_artifacts_survive_a_database_round_trip(db):
+    """
+    Write a trial, expire it from the session, read it back. A "load" listener
+    that rewrote metrics would strip the artifacts here.
+    """
+    exp_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    dataset_id = uuid.uuid4()
+
+    db.add(Experiment(
+        id=exp_id,
+        project_id=project_id,
+        dataset_id=dataset_id,
+        target_column="target",
+        problem_type="classification",
+        primary_metric="f1_macro",
+        status="completed",
+    ))
+    db.add(ModelTrial(
+        experiment_id=exp_id,
+        algorithm_name="logistic_regression",
+        hyperparameters={},
+        metrics=dict(CLASSIFICATION_METRICS),
+        primary_metric_score=0.84,
+        is_best=True,
+        status="completed",
+    ))
+    await db.commit()
+    db.expire_all()
+
+    from sqlalchemy import select
+
+    reloaded = (await db.execute(
+        select(ModelTrial).where(ModelTrial.experiment_id == exp_id)
+    )).scalar_one()
+
+    assert reloaded.metrics["confusion_matrix"]["matrix"] == [[70, 5], [7, 18]], (
+        "confusion_matrix did not survive the round trip"
+    )
+    assert reloaded.metrics["per_class"]["yes"]["support"] == 25

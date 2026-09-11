@@ -56,22 +56,59 @@ class ModelTrial(Base):
 from sqlalchemy import event
 
 
+def json_safe_metrics(value):
+    """
+    Make a metrics value JSON-serializable without discarding structure.
+
+    numpy scalars (np.float64, np.int64) are what the JSON encoder chokes on,
+    so they are converted to their Python equivalents. Everything else keeps
+    its shape.
+
+    This replaces a filter that kept only top-level int/float entries. That
+    filter silently deleted `confusion_matrix` and `per_class` — both nested
+    dicts — on the way into the database and again on every load, so the
+    confusion matrix and per-class breakdown could never be displayed. The
+    unit test covering them passed anyway, because it used a plain FakeTrial
+    that these listeners never touch.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)       # also strips numpy integer subclasses
+    if isinstance(value, float):
+        return float(value)     # np.float64 subclasses float
+    if isinstance(value, dict):
+        return {k: json_safe_metrics(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe_metrics(v) for v in value]
+    if isinstance(value, str) or value is None:
+        return value
+    # numpy scalars and 0-d arrays expose .item()
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            return json_safe_metrics(item())
+        except (ValueError, TypeError):
+            pass
+    # ndarray and anything else list-like
+    tolist = getattr(value, "tolist", None)
+    if callable(tolist):
+        try:
+            return json_safe_metrics(tolist())
+        except (ValueError, TypeError):
+            pass
+    return value
+
+
 @event.listens_for(ModelTrial, "init")
 def _sanitize_model_trial_init(target, args, kwargs):
+    """Coerce metrics to JSON-safe types at construction time."""
     if "metrics" in kwargs and isinstance(kwargs["metrics"], dict):
-        kwargs["metrics"] = {
-            k: float(v)
-            for k, v in kwargs["metrics"].items()
-            if isinstance(v, (int, float)) and not isinstance(v, bool)
-        }
+        kwargs["metrics"] = json_safe_metrics(kwargs["metrics"])
 
 
-@event.listens_for(ModelTrial, "load")
-def _sanitize_model_trial_load(target, context):
-    if hasattr(target, "metrics") and isinstance(target.metrics, dict):
-        target.metrics = {
-            k: float(v)
-            for k, v in target.metrics.items()
-            if isinstance(v, (int, float)) and not isinstance(v, bool)
-        }
+# There is deliberately no "load" listener. Rewriting target.metrics on load
+# marks a freshly-loaded object dirty, which can provoke a pointless UPDATE on
+# the next flush, and anything already stored came through the write path and
+# is JSON-safe by construction.
 
