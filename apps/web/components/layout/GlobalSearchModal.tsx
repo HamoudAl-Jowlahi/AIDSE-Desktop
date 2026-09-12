@@ -44,8 +44,11 @@ export function GlobalSearchModal({
           setProjectList(res.items);
           if (res.items.length > 0) {
             try {
+              // Every project, not the first five. The cap silently made
+              // datasets in the sixth project onward unsearchable, with no
+              // hint that results were incomplete.
               const allDs = await Promise.all(
-                res.items.slice(0, 5).map((p) => datasetsApi.list(p.id).catch(() => []))
+                res.items.map((p) => datasetsApi.list(p.id).catch(() => []))
               );
               setDatasetList(allDs.flat());
             } catch {
