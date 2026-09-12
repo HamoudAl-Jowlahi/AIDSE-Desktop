@@ -207,11 +207,12 @@ separate false encryption claims corrected across UI, landing page and docs.
 ## 4. Current state
 
 ```
-Tests:      283 passed, 1 skipped, 0 failed   (~2–4 min)
-Rust:       cargo check clean; cargo test 5 passed
+Tests:      82 passed, 1 skipped, 0 failed    (apps/api/tests, ~30 s)
+Rust:       cargo check clean (updater plugin compiles); cargo test 5 passed
 TypeScript: clean
 Build:      green, 20 routes
 Capabilities verified end-to-end: 16 / 16
+Installer:  NSIS, 235.6 MB — built once, now STALE (predates a293b3a)
 ```
 
 Toolchain installed this session: **Rust 1.98.1** + **MSVC 14.44** + **Windows
@@ -240,9 +241,10 @@ Closes the **last critical security gap** and shrinks the installer from
 | 7 | Rebuild the sidecar | ✅ rebuilt, migrations + keyring confirmed inside it |
 | 8 | Bundle the backend correctly | ✅ `bundle.resources` (see below) |
 | 9 | Root `package.json` + Tauri CLI | ✅ neither existed |
-| 10 | `tauri build` produces a working app | 🔄 compiling; **never run before** |
-| 11 | Launch the bundle and confirm the handshake | ❌ |
-| 12 | Real minisign key | ❌ |
+| 10 | `tauri build` produces a working app | ✅ NSIS installer, **235.6 MB** (was 353 MB) |
+| 11 | Launch the bundle and confirm the handshake | ❌ **next task** |
+| 12 | Real minisign key | ⏳ waiting on the owner — see below |
+| 13 | GitHub Releases updater | ✅ wired end to end, inert until the key lands |
 
 **Verified against the packaged executable, not just source:**
 
@@ -265,6 +267,61 @@ correct token -> 200      (no file fallback, so the keyring hidden
 2. **The Tauri CLI was never installed** and there was no root `package.json`.
    `npx tauri build` failed outright, which means the desktop bundle had not
    been produced on this machine even once.
+
+### Where this session stopped
+
+Everything for the updater is committed (`6283833`) and the suite is green.
+One input is outstanding and only the project owner can supply it.
+
+**The single blocking step — generate the signing keypair:**
+
+```bash
+npm run tauri signer generate -- -w "$HOME/.tauri/aidse.key"
+```
+
+Then:
+
+1. Paste the contents of `~/.tauri/aidse.key.pub` into
+   `src-tauri/tauri.conf.json` → `plugins.updater.pubkey` (currently `""`).
+2. Add repository secrets `TAURI_SIGNING_PRIVATE_KEY` (the contents of
+   `aidse.key`) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+The private key must never be committed; `test_the_private_signing_key_is_not_in_the_repository`
+asserts that. Losing it means no installed copy can ever be updated again,
+because they carry the old public key and will reject anything else.
+`test_updater_public_key_is_a_real_minisign_key` skips while the field is
+empty and starts asserting the moment it is filled.
+
+**What is already wired:**
+
+- `src-tauri/Cargo.toml` — `tauri-plugin-updater` (target-gated off mobile)
+- `src-tauri/src/main.rs` — plugin registered
+- `src-tauri/capabilities/default.json` — `updater:default`
+- `src-tauri/tauri.conf.json` — endpoint
+  `https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest/download/latest.json`,
+  NSIS `installMode: passive`
+- `apps/web/lib/updater.ts` — daily throttled check, per-version dismissal,
+  download progress, relaunch; failures stay in the console
+- `apps/web/components/layout/UpdateBanner.tsx` — corner toast, mounted inside
+  the lock so it never renders over a locked workspace
+- Settings → Diagnostics — **Check for updates**, reports either outcome
+- `.github/workflows/release.yml` — refuses to build when the tag and
+  `tauri.conf.json` version disagree; publishes a **draft** release with the
+  installer, its `.sig` and `latest.json`
+- `docs/releasing.md` — the full procedure
+
+**Git remote added this session:** `origin` →
+`https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop.git`. Nothing has been
+pushed yet; the branch is `master` while the repo's main branch is `main`.
+
+**Also dropped the MSI target** (`76a4b2a`). It failed with `timeout: global`
+fetching `wix314-binaries.zip`, and MSI only matters for group-policy
+deployment, which a per-user desktop app does not use.
+
+**Then:** rebuild the bundle (the 235.6 MB one predates the supervision fix
+`a293b3a`), launch it, and confirm the handshake — item 11.
+
+---
 
 **Correct the size expectation.** Earlier notes claimed Tauri would take the
 installer from 353 MB to ~15 MB. That is wrong. Tauri swaps a ~150 MB Electron
