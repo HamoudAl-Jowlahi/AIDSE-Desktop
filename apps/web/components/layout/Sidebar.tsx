@@ -42,7 +42,11 @@ export default function Sidebar() {
       <div className="p-6">
         <div
           className="text-2xl font-bold tracking-tight mb-1"
-          style={{ color: "var(--color-primary)" }}
+          // --color-primary is white in the light palette (it means "text on
+          // the primary container"), which made the wordmark invisible there.
+          // --color-primary-container reads on a surface in both themes:
+          // cyan on dark, navy on light.
+          style={{ color: "var(--color-primary-container)" }}
         >
           AIDSE
         </div>
@@ -77,7 +81,7 @@ export default function Sidebar() {
                 ? {
                     background: "rgba(0,242,254,0.08)",
                     borderLeft: "4px solid var(--color-primary-container)",
-                    color: "var(--color-primary)",
+                    color: "var(--color-primary-container)",
                   }
                 : {
                     display: "flex",

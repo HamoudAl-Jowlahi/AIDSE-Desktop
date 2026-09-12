@@ -6,6 +6,7 @@
  * cache cleanup, and system diagnostics.
  */
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { desktopSystem, type SystemInfoResponse, type DesktopSettings } from "@/lib/api";
 
 type TabKey = "security" | "storage" | "performance" | "appearance" | "diagnostics";
@@ -41,6 +42,7 @@ export default function SettingsPage() {
 
   // Settings save state
   const [savingSettings, setSavingSettings] = useState(false);
+  const { theme: activeTheme, setTheme } = useTheme();
   const [settingsFeedback, setSettingsFeedback] = useState<string | null>(null);
 
   // Load system info and desktop settings on mount
@@ -116,6 +118,12 @@ export default function SettingsPage() {
   async function handleSaveSettings(newVals: Partial<DesktopSettings>) {
     const updated = { ...settings, ...newVals };
     setSettings(updated);
+
+    // Apply the theme immediately. Picking one here used to persist a string
+    // to settings.json and nothing else — the root layout pinned dark, so the
+    // choice never reached the screen.
+    if (newVals.theme) setTheme(newVals.theme);
+
     setSavingSettings(true);
     setSettingsFeedback(null);
     try {
@@ -679,7 +687,7 @@ export default function SettingsPage() {
               <div
                 onClick={() => handleSaveSettings({ theme: "dark" })}
                 className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  settings.theme === "dark"
+                  (activeTheme ?? settings.theme) === "dark"
                     ? "bg-cyan-500/10 border-cyan-500/40 shadow-sm"
                     : "glass-card hover:border-white/20"
                 }`}
@@ -689,7 +697,7 @@ export default function SettingsPage() {
                     <span className="material-symbols-outlined text-cyan-400 text-base">dark_mode</span>
                     <span>Dark (recommended)</span>
                   </span>
-                  {settings.theme === "dark" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
+                  {(activeTheme ?? settings.theme) === "dark" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
                 </div>
                 <p className="text-xs text-slate-400">Easier on the eyes during long analysis sessions.</p>
               </div>
@@ -697,7 +705,7 @@ export default function SettingsPage() {
               <div
                 onClick={() => handleSaveSettings({ theme: "light" })}
                 className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  settings.theme === "light"
+                  (activeTheme ?? settings.theme) === "light"
                     ? "bg-cyan-500/10 border-cyan-500/40 shadow-sm"
                     : "glass-card hover:border-white/20"
                 }`}
@@ -707,7 +715,7 @@ export default function SettingsPage() {
                     <span className="material-symbols-outlined text-amber-400 text-base">light_mode</span>
                     <span>Light</span>
                   </span>
-                  {settings.theme === "light" && <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />}
+                  {(activeTheme ?? settings.theme) === "light" && <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />}
                 </div>
                 <p className="text-xs text-slate-400">High-contrast light background for bright rooms.</p>
               </div>
@@ -715,7 +723,7 @@ export default function SettingsPage() {
               <div
                 onClick={() => handleSaveSettings({ theme: "system" })}
                 className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  settings.theme === "system"
+                  (activeTheme ?? settings.theme) === "system"
                     ? "bg-cyan-500/10 border-cyan-500/40 shadow-sm"
                     : "glass-card hover:border-white/20"
                 }`}
@@ -725,7 +733,7 @@ export default function SettingsPage() {
                     <span className="material-symbols-outlined text-slate-400 text-base">settings_brightness</span>
                     <span>Match Windows</span>
                   </span>
-                  {settings.theme === "system" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
+                  {(activeTheme ?? settings.theme) === "system" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
                 </div>
                 <p className="text-xs text-slate-400">Follows your Windows light or dark setting.</p>
               </div>

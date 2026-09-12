@@ -358,9 +358,16 @@ export default function DashboardPage() {
               <h2 className="text-xl font-semibold" style={{ color: "var(--color-on-surface)" }}>
                 Recent evaluation runs
               </h2>
-              <button style={{ color: "var(--color-on-surface-variant)" }}>
-                <span className="material-symbols-outlined">more_horiz</span>
-              </button>
+              {/* A "more" button with no menu behind it was the last inert
+                  control on this page; a link to the full list is the action
+                  it was standing in for. */}
+              <Link
+                href="/evaluations"
+                className="text-xs mono hover:underline"
+                style={{ color: "var(--color-primary)" }}
+              >
+                View all
+              </Link>
             </div>
             <EmptyState
               icon="science"

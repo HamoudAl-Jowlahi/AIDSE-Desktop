@@ -7,6 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUnreadCount } from "@/lib/use-notifications";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { GlobalSearchModal } from "./GlobalSearchModal";
 
 const TOP_TABS = [
@@ -101,15 +102,10 @@ export default function TopBar() {
               )}
             </Link>
 
-            <Link
-              href="/settings"
-              className="p-1.5 rounded-lg transition-colors hover:bg-white/5 flex items-center justify-center"
-              style={{ color: "var(--color-on-surface-variant)" }}
-              title="Settings"
-              aria-label="Settings"
-            >
-              <span className="material-symbols-outlined">settings</span>
-            </Link>
+            {/* Settings already has a permanent home in the sidebar, so a
+                second entry point here was pure duplication. The theme switch
+                is the thing people actually reach for repeatedly. */}
+            <ThemeToggle />
           </div>
 
           <Link href="/projects" className="btn-primary text-xs" style={{ padding: "0.375rem 0.875rem" }}>

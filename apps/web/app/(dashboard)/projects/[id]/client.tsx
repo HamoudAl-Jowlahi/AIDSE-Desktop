@@ -315,7 +315,7 @@ export default function ProjectDetailPage() {
             <span className="material-symbols-outlined mr-2" style={{ fontSize: "1rem", color: "var(--color-primary-container)" }}>
               info
             </span>
-            Evaluation runs, datasets, and models will appear here in Phase 1.
+            Open the Datasets tab to upload data, or ML Lab to train a model.
           </div>
         </div>
       )}
