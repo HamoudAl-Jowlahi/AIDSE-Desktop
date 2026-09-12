@@ -86,6 +86,36 @@ def _direction_word(contribution: float) -> str:
     )
 
 
+def _as_2d_contributions(shap_values) -> np.ndarray:
+    """
+    Reduce whatever TreeExplainer returned to a (samples, features) matrix.
+
+    SHAP changed shape between versions. Up to 0.44 a classifier produced a
+    list with one array per class; from 0.45 it returns a single array shaped
+    (samples, features, classes). The code here only handled the list, so on
+    shap 0.45+ a 3-D array flowed through, `np.abs(...).mean(0)` produced a
+    (features, classes) matrix, and building the importance dict raised
+
+        TypeError: only 0-dimensional arrays can be converted to Python scalars
+
+    which surfaced as a 500 from the explain endpoint — so explainability was
+    broken for every tree model.
+    """
+    if isinstance(shap_values, list):
+        # Legacy: one array per class. Binary models explain the positive class.
+        chosen = shap_values[1] if len(shap_values) > 1 else shap_values[0]
+        return np.asarray(chosen)
+
+    values = np.asarray(shap_values)
+    if values.ndim <= 2:
+        return values
+
+    # (samples, features, classes)
+    if values.shape[2] == 2:
+        return values[:, :, 1]              # positive class
+    return np.abs(values).mean(axis=2)      # multiclass: mean magnitude
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # GLOBAL explanation
 # ──────────────────────────────────────────────────────────────────────────────
@@ -109,10 +139,7 @@ async def generate_global_shap(trial_id: uuid.UUID) -> dict:
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_sample)
 
-        if isinstance(shap_values, list):
-            shap_values_to_plot = shap_values[1] if len(shap_values) > 1 else shap_values[0]
-        else:
-            shap_values_to_plot = shap_values
+        shap_values_to_plot = _as_2d_contributions(shap_values)
 
         plt.figure()
         shap.summary_plot(shap_values_to_plot, X_sample, show=False)
@@ -214,12 +241,16 @@ async def generate_local_shap(trial_id: uuid.UUID, row_index: int = 0) -> dict:
         shap_values = explainer.shap_values(row_data)
         expected_value = explainer.expected_value
         
-        if isinstance(shap_values, list):
-            shap_vals = shap_values[1][0] if len(shap_values) > 1 else shap_values[0][0]
-            base_val = expected_value[1] if isinstance(expected_value, (list, np.ndarray)) and len(expected_value) > 1 else (expected_value[0] if isinstance(expected_value, (list, np.ndarray)) else expected_value)
+        # Same shape problem as the global path: shap >= 0.45 hands back a
+        # (rows, features, classes) array where older versions returned a list
+        # per class. Collapse to this row's per-feature contributions.
+        shap_vals = _as_2d_contributions(shap_values)[0]
+
+        if isinstance(expected_value, (list, np.ndarray)):
+            expected = np.ravel(expected_value)
+            base_val = expected[1] if expected.size > 1 else expected[0]
         else:
-            shap_vals = shap_values[0]
-            base_val = expected_value[0] if isinstance(expected_value, (list, np.ndarray)) else expected_value
+            base_val = expected_value
             
         plt.figure()
         try:

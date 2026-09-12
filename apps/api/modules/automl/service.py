@@ -51,14 +51,49 @@ if mlflow is not None and hasattr(mlflow, "set_tracking_uri") and MLFLOW_DB_PATH
 FOCUSED_CLASSIFICATION = ["logistic_regression", "random_forest", "xgboost", "svm"]
 FOCUSED_REGRESSION = ["linear_regression", "random_forest", "xgboost"]
 
+def identifier_columns(X: pd.DataFrame) -> list[str]:
+    """
+    Columns that identify a row rather than describe it.
+
+    A key is unique per row, so it carries no signal that generalises — but a
+    label encoder happily turns it into 0..n-1, and a tree will then split on
+    it. In a walkthrough on customer data, `customer_id` came out as the second
+    most important feature, which is memorisation, not learning. Profiling
+    already flags these as "identifier"; training simply was not asking.
+    """
+    dropped: list[str] = []
+    row_count = max(len(X), 1)
+
+    for col in X.columns:
+        lowered = str(col).strip().lower()
+        if lowered in ("id", "index", "uuid", "guid") or lowered.endswith("_id"):
+            dropped.append(col)
+            continue
+
+        unique_ratio = X[col].nunique(dropna=True) / row_count
+        if unique_ratio < 0.98:
+            continue
+        # Near-unique. For text that is a key; for floats it is usually a real
+        # measurement, which should be kept.
+        if not pd.api.types.is_numeric_dtype(X[col]) or pd.api.types.is_integer_dtype(X[col]):
+            dropped.append(col)
+
+    return dropped
+
+
 def preprocess_data(df: pd.DataFrame, target_column: str, problem_type: str):
     # Separate X and y and drop rows where target is missing
     valid_mask = df[target_column].notna()
     df_clean = df[valid_mask].copy()
-    
+
     y = df_clean[target_column].copy()
     X = df_clean.drop(columns=[target_column])
-    
+
+    leaking = identifier_columns(X)
+    if leaking:
+        logger.info("Excluding identifier columns from training: %s", ", ".join(leaking))
+        X = X.drop(columns=leaking)
+
     # Very basic preprocessing (in production, should use the pipeline stored in Dataset Intelligence)
     # Fill missing values
     for col in X.columns:
@@ -126,7 +161,11 @@ def get_model(algorithm_name: str, problem_type: str, params: Dict[str, Any], th
         elif algorithm_name == "lightgbm": return LGBMClassifier(**params, n_jobs=threads, random_state=42, verbose=-1)
         elif algorithm_name == "catboost": return CatBoostClassifier(**params, thread_count=threads, random_state=42, verbose=0)
         elif algorithm_name == "logistic_regression": return LogisticRegression(max_iter=1000, n_jobs=threads, **params)
-        elif algorithm_name == "svm": return SVC(kernel="rbf", cache_size=300, probability=True, random_state=42, **params)
+        # kernel is a tuned parameter, so it must be a default that `params`
+        # can override — passing it positionally as well raised
+        # "SVC() got multiple values for keyword argument 'kernel'" and took
+        # the whole experiment down with it.
+        elif algorithm_name == "svm": return SVC(cache_size=300, probability=True, random_state=42, **{"kernel": "rbf", **params})
     else:
         if algorithm_name == "random_forest": return RandomForestRegressor(**params, n_jobs=threads, random_state=42)
         elif algorithm_name == "xgboost": return XGBRegressor(**params, n_jobs=threads, random_state=42)
@@ -327,9 +366,23 @@ async def _run_automl_async(experiment_id: str):
             study = optuna.create_study(direction=direction)
             created_trials: List[ModelTrial] = []
 
+            failed_trials: list[str] = []
+
             for _ in range(10):
                 trial = study.ask()
-                val = await asyncio.to_thread(objective, trial)
+                try:
+                    val = await asyncio.to_thread(objective, trial)
+                except Exception as trial_exc:
+                    # One algorithm blowing up must not discard the trials that
+                    # already succeeded. A bad SVC keyword used to abort the
+                    # whole run here, and the experiment was reported as failed
+                    # even though four usable models had been fitted and saved.
+                    algo_name = trial.params.get("algorithm", "unknown")
+                    logger.warning("Trial for %s failed: %s", algo_name, trial_exc)
+                    failed_trials.append(f"{algo_name}: {trial_exc}")
+                    study.tell(trial, state=optuna.trial.TrialState.FAIL)
+                    continue
+
                 study.tell(trial, val)
 
                 # Pass metrics through untouched: ModelTrial's init listener is
@@ -360,14 +413,32 @@ async def _run_automl_async(experiment_id: str):
                 created_trials.append(model_trial)
                 await db.commit()
 
-            # Mark the winning trial
-            best_trial_num = study.best_trial.number
-            for idx, mt in enumerate(created_trials):
-                if idx == best_trial_num:
-                    mt.is_best = True
+            # Mark the winning trial by score, not by Optuna's trial number.
+            # created_trials only holds trials that produced a model, so once
+            # any trial fails the numbering no longer lines up with this list
+            # and the wrong row was flagged as best.
+            scored = [mt for mt in created_trials if mt.primary_metric_score is not None]
+            if scored:
+                lower_is_better = experiment.primary_metric in ("rmse", "mae", "mse")
+                best = (min if lower_is_better else max)(
+                    scored, key=lambda mt: mt.primary_metric_score
+                )
+                for mt in created_trials:
+                    mt.is_best = mt is best
 
-            experiment.status = "completed"
-            experiment.error_message = None
+            if not created_trials:
+                experiment.status = "failed"
+                experiment.error_message = (
+                    "No model could be trained. " + "; ".join(failed_trials[:3])
+                    if failed_trials else "No model could be trained."
+                )
+            else:
+                experiment.status = "completed"
+                # Keep partial failures visible without calling the run a failure.
+                experiment.error_message = (
+                    f"{len(failed_trials)} of {len(failed_trials) + len(created_trials)} "
+                    f"trials failed: " + "; ".join(failed_trials[:3])
+                ) if failed_trials else None
             await db.commit()
             
         except Exception as e:
