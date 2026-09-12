@@ -46,5 +46,15 @@
       "../dist/aidse-backend": "backend/"
     }
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest/download/latest.json"
+      ],
+      "pubkey": "",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
 }

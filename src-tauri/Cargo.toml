@@ -20,6 +20,12 @@ log = "0.4"
 # sidecar it spawns.
 rand = "0.8"
 
+# Update checks against GitHub Releases. Kept out of the main dependency table
+# because the updater plugin has no mobile implementation, and a target-gated
+# dependency documents that rather than failing a build nobody runs.
+[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
+tauri-plugin-updater = "2"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

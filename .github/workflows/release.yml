@@ -1,0 +1,108 @@
+# Build and publish an AIDSE desktop release.
+#
+# Triggered by pushing a version tag. The tag must match the version in
+# src-tauri/tauri.conf.json, because that version — not the tag — is what ends
+# up in latest.json and what an installed copy compares itself against. A
+# mismatch would publish an installer that no running app believes is newer,
+# so the first job refuses to build one.
+#
+# The signing key lives in two repository secrets and nowhere else:
+#   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/aidse.key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  the password protecting it
+# Losing them means no further update can ever be pushed to installed copies,
+# because the public key baked into those copies will not verify anything else.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-version:
+    name: Tag matches the app version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare the tag against tauri.conf.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          conf=$(jq -r .version src-tauri/tauri.conf.json)
+          if [ "$tag" != "$conf" ]; then
+            echo "::error::tag $GITHUB_REF_NAME says $tag, src-tauri/tauri.conf.json says $conf."
+            echo "::error::latest.json takes its version from the config, so installed copies would not see this as an update."
+            exit 1
+          fi
+          echo "Releasing $conf"
+
+  release:
+    name: Windows installer
+    needs: verify-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Rust is the slow half of a cold build: ~350 MB of crates and a full
+      # release compile. Keyed on Cargo.lock so a dependency bump busts it.
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # The backend is a PyInstaller onedir tree, not a single file: a launcher
+      # stub plus the _internal folder holding the Python DLL it loads at
+      # startup. tauri.conf.json ships the whole tree via bundle.resources.
+      - name: Build the backend sidecar
+        run: pyinstaller infrastructure/desktop/sidecar.spec --distpath dist --workpath build --noconfirm
+
+      - name: Confirm the sidecar actually built
+        shell: bash
+        run: |
+          test -f dist/aidse-backend/aidse-backend.exe || {
+            echo "::error::PyInstaller did not produce dist/aidse-backend/aidse-backend.exe"
+            exit 1
+          }
+          du -sh dist/aidse-backend
+
+      - name: Install frontend dependencies
+        run: |
+          npm ci
+          npm --prefix apps/web ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "AIDSE ${{ github.ref_name }}"
+          releaseBody: "See the assets below. AIDSE updates itself from this release; the installer is signed and every installed copy verifies that signature before running it."
+          releaseDraft: true
+          prerelease: false
+          # Writes latest.json beside the installer. The app's configured
+          # endpoint is releases/latest/download/latest.json, so this file is
+          # the entire update mechanism.
+          includeUpdaterJson: true

@@ -8,11 +8,14 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { desktopSystem, type SystemInfoResponse, type DesktopSettings } from "@/lib/api";
+import { checkForUpdates, installUpdate } from "@/lib/updater";
+import { useUpdateState } from "@/components/layout/UpdateBanner";
 
 type TabKey = "security" | "storage" | "performance" | "appearance" | "diagnostics";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("security");
+  const update = useUpdateState();
 
   // System and settings state
   const [info, setInfo] = useState<SystemInfoResponse | null>(null);
@@ -806,7 +809,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex justify-between py-1">
                     <span className="text-slate-400">Network:</span>
-                    <span className="text-emerald-400 font-mono">Fully offline</span>
+                    <span className="text-emerald-400 font-mono">Local only — update checks aside</span>
                   </div>
                 </div>
               </div>
@@ -825,6 +828,45 @@ export default function SettingsPage() {
                     <span className="text-slate-500">Loading versions...</span>
                   )}
                 </div>
+              </div>
+            </div>
+
+
+            {/* Updates */}
+            <div className="glass-card rounded-xl p-4 space-y-3">
+              <span className="text-xs font-mono uppercase text-cyan-400 block font-semibold">Updates</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p className="text-xs text-slate-400 leading-relaxed max-w-md">
+                  {update.stage === "available"
+                    ? `Version ${update.version} is ready to install.`
+                    : update.stage === "downloading"
+                      ? `Downloading ${update.version}${update.progress !== undefined ? ` — ${update.progress}%` : ""}...`
+                      : update.stage === "error"
+                        ? update.error
+                        : "AIDSE checks GitHub once a day for a new release and verifies its signature before installing anything. Nothing is uploaded."}
+                </p>
+                <button
+                  onClick={() =>
+                    update.stage === "available"
+                      ? void installUpdate()
+                      : void checkForUpdates({ silent: false })
+                  }
+                  disabled={update.stage === "checking" || update.stage === "downloading"}
+                  className="btn-ghost flex items-center gap-2 text-xs shrink-0"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {update.stage === "available" ? "download" : "system_update_alt"}
+                  </span>
+                  <span>
+                    {update.stage === "checking"
+                      ? "Checking..."
+                      : update.stage === "downloading"
+                        ? "Downloading..."
+                        : update.stage === "available"
+                          ? "Install and restart"
+                          : "Check for updates"}
+                  </span>
+                </button>
               </div>
             </div>
 

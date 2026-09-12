@@ -1,11 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/capability/2",
   "identifier": "default",
-  "description": "Minimal allow-list for the AIDSE desktop shell. Capabilities gate what the web page may ask the Rust side to do, so nothing here needs shell access: the sidecar is spawned from Rust during setup, and the page only calls the app's own get_sidecar_config command.",
+  "description": "Minimal allow-list for the AIDSE desktop shell. Capabilities gate what the web page may ask the Rust side to do, so nothing here needs shell access: the sidecar is spawned from Rust during setup, and the page only calls the app's own get_sidecar_config command. updater:default lets the page check for and install a signed release; process:allow-restart is what restarts the app once one is installed.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "process:allow-restart",
-    "process:allow-exit"
+    "process:allow-exit",
+    "updater:default"
   ]
 }

@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import LockScreen, { useAppLock } from "@/components/layout/LockScreen";
+import UpdateBanner from "@/components/layout/UpdateBanner";
 import { useAuth } from "@/lib/auth";
 
 export default function DashboardLayout({
@@ -64,6 +65,9 @@ export default function DashboardLayout({
           <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
+      {/* Inside the lock, so an update notice never renders over the lock
+          screen of a workspace nobody has unlocked yet. */}
+      <UpdateBanner />
     </div>
   );
 }

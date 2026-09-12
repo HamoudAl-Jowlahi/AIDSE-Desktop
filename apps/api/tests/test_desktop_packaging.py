@@ -103,6 +103,12 @@ APPROVED_PERMISSIONS = {
     "core:default",
     "process:allow-restart",
     "process:allow-exit",
+    # Lets the page check GitHub Releases, download an installer and run it.
+    # That is real authority — it ends in code executing outside the sandbox —
+    # and it is granted on one condition: the updater plugin refuses anything
+    # the minisign public key in tauri.conf.json does not verify. Remove the
+    # signature requirement and this permission becomes remote code execution.
+    "updater:default",
 }
 
 

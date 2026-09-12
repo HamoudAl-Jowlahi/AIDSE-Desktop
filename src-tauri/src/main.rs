@@ -34,9 +34,18 @@ fn main() {
 
     let manager = SidecarManager::new(host, port, token);
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_process::init());
+
+    // The updater has no mobile implementation, and this is a Windows desktop
+    // app, so the gate is documentation more than a real branch.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder
         .setup(|app| {
             let handle = app.handle().clone();
             let state: State<'_, AppState> = handle.state();
