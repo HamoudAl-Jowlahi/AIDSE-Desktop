@@ -24,6 +24,17 @@ os.environ.setdefault("LOCAL_TRAINING_FALLBACK", "false")
 # OS credential store during a test run.
 os.environ.setdefault("AIDSE_APP_SECRET", "0" * 64)
 
+# Keep the suite out of the user's real data directory. Without this,
+# get_aidse_data_dir() falls back to %LOCALAPPDATA%\AIDSE-Desktop and every
+# upload test writes a dataset folder into the live install — a full run left
+# well over a hundred orphaned directories behind.
+import tempfile as _tempfile
+
+os.environ.setdefault(
+    "AIDSE_DATA_DIR",
+    os.path.join(_tempfile.gettempdir(), "aidse-test-data"),
+)
+
 from collections.abc import AsyncGenerator
 
 import pytest_asyncio

@@ -406,3 +406,57 @@ async def test_delete_dataset_cross_tenant_404(client: AsyncClient, auth_headers
         headers=second_user_headers,
     )
     assert resp.status_code in (403, 404)
+
+
+# ── Regression: string identifier columns must not abort profiling ─────────
+
+
+def test_profiling_survives_a_string_identifier_column():
+    """
+    _semantic_type returns "identifier" from its object/string branch for a
+    high-cardinality text column, and the profiler then sent it to
+    _numeric_stats, whose quantile call raised
+
+        TypeError: unsupported operand type(s) for -: 'str' and 'str'
+
+    deep inside numpy. That aborted the whole profile, so the upload endpoint
+    rejected the file with 400. Customer codes, UUIDs, order numbers and
+    emails all land in this branch, so most real tabular data could not be
+    uploaded at all.
+    """
+    import pandas as pd
+
+    from apps.api.modules.datasets.profiling import profile_dataframe
+
+    df = pd.DataFrame({
+        "customer_id": [f"C{i:04d}" for i in range(60)],       # string identifier
+        "order_ref": [f"ORD-{i}-{i*7}" for i in range(60)],    # another one
+        "amount": [float(i) * 1.5 for i in range(60)],
+        "churned": [i % 2 for i in range(60)],
+    })
+
+    profile = profile_dataframe(df)
+
+    assert profile["num_rows"] == 60
+    assert profile["num_columns"] == 4
+
+    cid = profile["columns"]["customer_id"]
+    assert cid["semantic_type"] == "identifier"
+    # No numeric summary for a text key, but it is still described.
+    assert "mean" not in cid
+    assert cid["unique_count"] == 60
+
+    # A genuinely numeric column still gets its statistics.
+    amount = profile["columns"]["amount"]
+    assert amount["semantic_type"] == "numeric"
+    assert amount["mean"] == pytest.approx(44.25)
+
+
+def test_numeric_stats_refuses_a_non_numeric_series():
+    """The helper guards itself, so one bad classification cannot abort a profile."""
+    import pandas as pd
+
+    from apps.api.modules.datasets.profiling import _numeric_stats
+
+    assert _numeric_stats(pd.Series(["a", "b", "c"])) == {}
+    assert _numeric_stats(pd.Series([1.0, 2.0, 3.0])) != {}

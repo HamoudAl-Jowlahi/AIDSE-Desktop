@@ -36,7 +36,7 @@ class Conversation(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    project: Mapped["Project"] = relationship("Project")
+    project: Mapped["Project"] = relationship("Project", back_populates="conversations")
     messages: Mapped[list["ChatMessage"]] = relationship(
         "ChatMessage", back_populates="conversation",
         cascade="all, delete-orphan", order_by="ChatMessage.created_at",

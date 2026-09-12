@@ -1015,7 +1015,6 @@ export interface DesktopSettings {
   max_training_threads: number;
   performance_mode: "balanced" | "max";
   theme: "dark" | "light" | "system";
-  require_app_lock: boolean;
   auto_cleanup_cache: boolean;
   launch_on_startup: boolean;
 }

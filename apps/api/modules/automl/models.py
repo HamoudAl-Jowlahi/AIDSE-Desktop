@@ -26,8 +26,8 @@ class Experiment(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
     # Relationships
-    project = relationship("Project", backref="experiments")
-    dataset = relationship("Dataset", backref="experiments")
+    project = relationship("Project", back_populates="experiments")
+    dataset = relationship("Dataset", back_populates="experiments")
     trials = relationship("ModelTrial", back_populates="experiment", cascade="all, delete-orphan")
 
 

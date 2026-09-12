@@ -114,12 +114,17 @@ def main(args_list: list[str] | None = None) -> None:
     except Exception:
         pass
 
-    # Default to local SQLite database in desktop mode if DATABASE_URL not set
+    # Default to a local SQLite database in desktop mode if DATABASE_URL is unset.
+    #
+    # This must go through get_aidse_data_dir() rather than reading LOCALAPPDATA
+    # directly. It used to do the latter, which meant AIDSE_DATA_DIR moved the
+    # storage directory and the MLflow database but silently left the main
+    # database in the default location — so pointing the app at a scratch
+    # directory still wrote projects and datasets into the user's real data.
     if not os.getenv("DATABASE_URL"):
-        local_app_data = os.getenv("LOCALAPPDATA") or os.path.expanduser("~")
-        aidse_dir = os.path.join(local_app_data, "AIDSE-Desktop")
-        os.makedirs(aidse_dir, exist_ok=True)
-        db_file = os.path.join(aidse_dir, "aidse.db").replace("\\", "/")
+        from apps.api.core.storage import get_aidse_data_dir
+
+        db_file = str((get_aidse_data_dir() / "aidse.db").resolve()).replace("\\", "/")
         os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{db_file}"
 
     # Signal handlers for graceful shutdown

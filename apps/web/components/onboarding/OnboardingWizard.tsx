@@ -169,7 +169,7 @@ export function OnboardingWizard() {
                 <span>Local Workspace Location</span>
               </h2>
               <p className="text-slate-400 text-xs">
-                Confirm where AIDSE should store encrypted local project files and datasets.
+                Confirm where AIDSE should store your local project files and datasets.
               </p>
             </div>
 

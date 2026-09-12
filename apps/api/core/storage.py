@@ -50,6 +50,20 @@ def get_mlflow_tracking_uri() -> str:
     return f"sqlite:///{db_file_str}"
 
 
+def get_mlflow_artifact_uri() -> str:
+    """
+    Where MLflow writes run artifacts (models, plots, requirements files).
+
+    The tracking URI only decides where run *metadata* goes. Artifacts default
+    to ./mlruns relative to the working directory, which meant training from a
+    checkout dumped megabytes of model files into the source tree — and an app
+    started from a different directory could not find them again.
+    """
+    artifacts = get_aidse_data_dir() / "mlartifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    return artifacts.resolve().as_uri()
+
+
 def get_startup_error_log_path() -> Path:
     """Returns the canonical path for logging early startup exceptions."""
     return get_aidse_data_dir() / "startup_error.log"

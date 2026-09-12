@@ -260,3 +260,75 @@ async def test_delete_project_success(
         headers=auth_headers,
     )
     assert get_resp.status_code == 404
+
+
+# ── Regression: deleting a project must take its children with it ──────────
+
+
+@pytest.mark.asyncio
+async def test_delete_project_cascades_to_experiments(client: AsyncClient, auth_headers: dict, db):
+    """
+    Experiment reached Project through a plain backref, which carries no
+    cascade, so SQLAlchemy tried to NULL experiments.project_id — a NOT NULL
+    column — and deleting any project that had ever been trained on failed
+    with a 500. conversations and provider_credentials had the same shape.
+
+    Scope, stated honestly: this asserts the OUTCOME (project and children are
+    gone, endpoint returns 204). It does not reproduce the original failure.
+    That fault only appears when the deleting session already holds the
+    experiments collection, and it could not be reproduced against the
+    in-memory database this suite uses — configured exactly as it was when it
+    broke, this still passes. The fix was verified by hand against a real
+    file-backed database, where the delete failed before and succeeds after.
+    Treat a regression here as possible even if this test stays green.
+    """
+    import uuid as _uuid
+
+    from sqlalchemy import select
+
+    from apps.api.modules.automl.models import Experiment, ModelTrial
+    from apps.api.modules.datasets.models import Dataset
+    from apps.api.modules.projects.models import Project
+
+    created = await client.post("/api/v1/projects",
+                                json={"name": "Cascade Check", "type": "ml"},
+                                headers=auth_headers)
+    assert created.status_code == 201
+    project_id = _uuid.UUID(created.json()["id"])
+
+    dataset = Dataset(project_id=project_id, name="ds", format="csv")
+    db.add(dataset)
+    await db.flush()
+
+    experiment = Experiment(
+        project_id=project_id,
+        dataset_id=dataset.id,
+        target_column="y",
+        problem_type="classification",
+        primary_metric="f1_macro",
+        status="completed",
+    )
+    db.add(experiment)
+    await db.flush()
+
+    db.add(ModelTrial(
+        experiment_id=experiment.id,
+        algorithm_name="random_forest",
+        hyperparameters={},
+        metrics={"f1_macro": 0.8},
+        primary_metric_score=0.8,
+        status="completed",
+    ))
+    await db.commit()
+
+    resp = await client.delete(f"/api/v1/projects/{project_id}", headers=auth_headers)
+    assert resp.status_code == 204, resp.text
+
+    db.expire_all()
+    assert (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none() is None
+    assert (await db.execute(
+        select(Experiment).where(Experiment.project_id == project_id)
+    )).scalar_one_or_none() is None, "experiment outlived its project"
+    assert (await db.execute(
+        select(ModelTrial).where(ModelTrial.experiment_id == experiment.id)
+    )).scalar_one_or_none() is None, "trial outlived its experiment"

@@ -35,7 +35,7 @@ from apps.api.db.session import AsyncSessionLocal
 from apps.api.modules.automl.models import Experiment, ModelTrial
 from apps.api.modules.datasets.models import DatasetVersion
 
-from apps.api.core.storage import get_mlflow_tracking_uri
+from apps.api.core.storage import get_mlflow_artifact_uri, get_mlflow_tracking_uri
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +199,17 @@ async def _run_automl_async(experiment_id: str):
                 
             if mlflow is not None and hasattr(mlflow, "set_experiment"):
                 try:
+                    # Pin the artifact location to the data directory. Without
+                    # it MLflow writes run artifacts to ./mlruns relative to
+                    # the working directory, which put model files in the
+                    # source tree and out of the app's reach when it was
+                    # started from anywhere else.
+                    mlflow.set_experiment(
+                        f"AIDSE_Experiment_{experiment_id}",
+                        artifact_location=get_mlflow_artifact_uri(),
+                    )
+                except TypeError:
+                    # Older MLflow versions take no artifact_location here.
                     mlflow.set_experiment(f"AIDSE_Experiment_{experiment_id}")
                 except Exception as me:
                     logger.warning("MLflow set_experiment failed: %s", me)

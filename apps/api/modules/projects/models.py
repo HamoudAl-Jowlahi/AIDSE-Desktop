@@ -70,6 +70,30 @@ class Project(Base):
     golden_datasets: Mapped[list["GoldenDataset"]] = relationship(
         "GoldenDataset", back_populates="project", cascade="all, delete-orphan"
     )
+    # These three reach Project through a plain backref or an uncascaded
+    # relationship declared on the child. Without a cascade here SQLAlchemy
+    # tries to NULL their project_id on delete, and all three columns are NOT
+    # NULL — so deleting a project that had ever been used for training,
+    # chatted about, or given a provider key failed with an IntegrityError.
+    # passive_deletes=True matters as much as the cascade here. Every one of
+    # these FKs is declared ondelete="CASCADE", so the database can clean up
+    # on its own — but when the ORM has the collection loaded and no rule to
+    # follow, it emits UPDATE ... SET project_id = NULL *before* the DELETE
+    # and the NOT NULL constraint rejects it. passive_deletes tells the ORM to
+    # step back and let the database do it, whether or not the collection
+    # happens to be loaded.
+    experiments: Mapped[list["Experiment"]] = relationship(
+        "Experiment", back_populates="project",
+        cascade="all, delete-orphan", passive_deletes=True,
+    )
+    conversations: Mapped[list["Conversation"]] = relationship(
+        "Conversation", back_populates="project",
+        cascade="all, delete-orphan", passive_deletes=True,
+    )
+    provider_credentials: Mapped[list["ProviderCredential"]] = relationship(
+        "ProviderCredential", back_populates="project",
+        cascade="all, delete-orphan", passive_deletes=True,
+    )
     # The evaluation_runs will be connected directly to golden_datasets per the SRS ERD
     # so we do not link them directly to Project unless we need a backref for convenience.
 

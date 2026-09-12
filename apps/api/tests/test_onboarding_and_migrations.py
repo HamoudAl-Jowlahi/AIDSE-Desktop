@@ -111,6 +111,14 @@ def test_onboarding_claims_no_encryption_the_product_lacks():
             f"onboarding claims {phrase!r}; whole-database encryption is not implemented"
         )
 
+    # The workspace step also described the files themselves as encrypted.
+    # Provider credentials are encrypted; datasets and project files are not.
+    for phrase in ("encrypted local project files", "encrypted datasets"):
+        assert phrase not in content, (
+            f"onboarding describes stored data as {phrase!r}; only provider "
+            "credentials are encrypted"
+        )
+
 
 @pytest.mark.parametrize(
     "path",

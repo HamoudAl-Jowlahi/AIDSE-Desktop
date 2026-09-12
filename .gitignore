@@ -35,6 +35,12 @@ node_modules/
 htmlcov/
 .ruff_cache/
 
+# MLflow artifacts. Its tracking URI points at the data directory, but the
+# artifact root defaults to ./mlruns beside the working directory, so a
+# training run started from a checkout drops model files into the tree.
+mlruns/
+mlartifacts/
+
 # ── Local databases & runtime state ──────────────────────────────────────
 *.db
 *.db-shm

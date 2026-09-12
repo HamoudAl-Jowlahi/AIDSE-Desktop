@@ -88,8 +88,16 @@ def _infer_semantic_type(df: pd.DataFrame, col: str) -> str:
 
 
 def _numeric_stats(series: pd.Series) -> dict[str, Any]:
-    clean = series.dropna()
     stats: dict[str, Any] = {}
+    # Quantiles on an object column raise deep inside numpy
+    # ("unsupported operand type(s) for -: 'str' and 'str'"), which used to
+    # abort profiling and reject the whole upload. Callers should not pass a
+    # non-numeric column, but refusing one here keeps a bad classification
+    # from taking down the entire dataset.
+    if not pd.api.types.is_numeric_dtype(series):
+        return stats
+
+    clean = series.dropna()
     if clean.empty:
         return stats
 
@@ -177,9 +185,15 @@ def profile_dataframe(df: pd.DataFrame, target_column: str | None = None) -> dic
             col_stats["high_cardinality"] = True
             high_cardinality_columns.append(str(col))
 
-        if semantic in ("numeric", "identifier"):
+        # "identifier" covers both numeric keys and string keys — customer
+        # codes, UUIDs, order numbers — so it cannot be assumed numeric.
+        if semantic == "numeric" or (
+            semantic == "identifier" and pd.api.types.is_numeric_dtype(df[col])
+        ):
             col_stats.update(_numeric_stats(df[col]))
-        if semantic in ("categorical", "boolean", "text"):
+        if semantic in ("categorical", "boolean", "text") or (
+            semantic == "identifier" and not pd.api.types.is_numeric_dtype(df[col])
+        ):
             col_stats.update(_categorical_stats(df[col]))
         # Low-cardinality columns of ANY type (e.g. 0/1 numeric targets) get
         # value counts so the task detector can judge class balance.

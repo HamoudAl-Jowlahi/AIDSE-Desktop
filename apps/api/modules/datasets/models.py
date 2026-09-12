@@ -25,6 +25,11 @@ class Dataset(Base):
     format: Mapped[str] = mapped_column(String(50), nullable=False)
 
     project: Mapped["Project"] = relationship("Project", back_populates="datasets")
+    # Experiment.dataset used a backref; naming it here keeps the pair explicit
+    # and deletes an experiment along with the dataset it was trained on.
+    experiments: Mapped[list["Experiment"]] = relationship(
+        "Experiment", back_populates="dataset", cascade="all, delete-orphan"
+    )
     versions: Mapped[list["DatasetVersion"]] = relationship(
         "DatasetVersion", back_populates="dataset", cascade="all, delete-orphan"
     )
@@ -121,7 +126,7 @@ class ProviderCredential(Base):
     # Fernet-encrypted at rest (core/crypto.py) — never store provider keys in plaintext.
     encrypted_api_key: Mapped[str] = mapped_column(Text, nullable=False)
 
-    project: Mapped["Project"] = relationship("Project")
+    project: Mapped["Project"] = relationship("Project", back_populates="provider_credentials")
 
     def set_api_key(self, plaintext: str) -> None:
         from apps.api.core.crypto import encrypt_value
