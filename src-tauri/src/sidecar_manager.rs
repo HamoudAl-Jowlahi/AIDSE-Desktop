@@ -2,11 +2,11 @@ use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use std::process::{Command, Stdio};
+
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
-use tauri_plugin_shell::process::CommandEvent;
-use tauri_plugin_shell::ShellExt;
+use tauri::{AppHandle, Manager};
 
 /// What the frontend needs in order to talk to the sidecar.
 ///
@@ -58,16 +58,38 @@ impl SidecarManager {
         }
     }
 
-    /// Start the bundled backend, passing it the host, port and token.
+    /// Start the bundled backend and hand it the host, port and token.
     ///
-    /// Nothing here existed before: this struct carried restart bookkeeping for
-    /// a process it never launched, so the Tauri build shipped a shell with no
-    /// backend behind it.
+    /// Launched by path rather than through Tauri's sidecar mechanism, because
+    /// externalBin copies a single file while PyInstaller produces a directory:
+    /// a 60 MB launcher stub plus a 790 MB _internal tree it loads its Python
+    /// DLL from. Shipping only the stub produced an executable that died with
+    /// "Failed to load Python DLL", so the sidecar configuration could never
+    /// have worked. The whole tree is bundled as a resource instead.
+    ///
+    /// std::process::Command keeps this on the Rust side, so the webview needs
+    /// no shell permission in order for the backend to start.
     pub fn spawn(&self, app: &AppHandle) -> Result<(), String> {
-        let (mut rx, _child) = app
-            .shell()
-            .sidecar("aidse-backend")
-            .map_err(|e| format!("sidecar binary not found: {e}"))?
+        let backend = app
+            .path()
+            .resource_dir()
+            .map_err(|e| format!("could not locate the app resources: {e}"))?
+            .join("backend")
+            .join("aidse-backend")
+            .join("aidse-backend.exe");
+
+        if !backend.is_file() {
+            return Err(format!(
+                "the AIDSE backend is missing from this installation, expected at {}",
+                backend.display()
+            ));
+        }
+
+        let working_dir = backend
+            .parent()
+            .ok_or_else(|| "backend path has no parent directory".to_string())?;
+
+        let child = Command::new(&backend)
             .args([
                 "--host",
                 &self.config.host,
@@ -76,29 +98,19 @@ impl SidecarManager {
                 "--token",
                 &self.config.token,
             ])
+            // The working directory must be the backend's own folder, so the
+            // launcher stub finds _internal sitting beside it.
+            .current_dir(working_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|e| format!("could not start the AIDSE backend: {e}"))?;
 
-        // Drain the sidecar's output. Without a reader the pipe fills and the
-        // child blocks once it has logged enough.
-        tauri::async_runtime::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                match event {
-                    CommandEvent::Stderr(line) => {
-                        log::warn!("[sidecar] {}", String::from_utf8_lossy(&line));
-                    }
-                    CommandEvent::Stdout(line) => {
-                        log::info!("[sidecar] {}", String::from_utf8_lossy(&line));
-                    }
-                    CommandEvent::Terminated(payload) => {
-                        log::error!("[sidecar] exited: {:?}", payload.code);
-                        break;
-                    }
-                    _ => {}
-                }
-            }
-        });
-
+        log::info!(
+            "AIDSE backend started (pid {}) on port {}",
+            child.id(),
+            self.config.port
+        );
         Ok(())
     }
 

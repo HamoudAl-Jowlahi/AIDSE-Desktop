@@ -8,9 +8,9 @@ inside the test body and asserted against that — SidecarManager was never
 imported. The real policy is now covered by a Rust unit test in
 src-tauri/src/sidecar_manager.rs.
 
-Note for anyone reading these as evidence the desktop shell works: it does not
-yet. main.rs never spawns the sidecar and hardcodes an empty internal token.
-These tests cover the configuration, not the runtime.
+Note on scope: these cover configuration, not runtime. The shell itself now
+spawns the backend and generates a per-launch token — that behaviour is
+verified by the Rust tests and by running the packaged binary.
 """
 from __future__ import annotations
 
@@ -89,9 +89,28 @@ def test_tauri_identity_and_frontend_path():
     assert data.get("build", {}).get("frontendDist") == "../apps/web/out"
 
 
-def test_sidecar_binary_is_declared():
-    data = _tauri_conf()
-    assert "binaries/aidse-backend" in data.get("bundle", {}).get("externalBin", [])
+def test_backend_ships_as_a_resource_tree_not_a_single_binary():
+    """
+    The config used to declare externalBin: binaries/aidse-backend, which cannot
+    work. externalBin copies one file, and PyInstaller produces a directory: a
+    60 MB launcher stub plus a 790 MB _internal tree holding the Python DLL it
+    loads at startup. Running the stub alone fails with
+
+        Failed to load Python DLL ..._internal\python314.dll
+
+    so the bundled app would have had no backend at all.
+    """
+    bundle = _tauri_conf().get("bundle", {})
+
+    assert "externalBin" not in bundle, (
+        "externalBin ships a single file; the PyInstaller backend is a directory"
+    )
+
+    resources = bundle.get("resources", {})
+    assert resources, "the backend must be bundled as a resource tree"
+    assert any("aidse-backend" in src for src in resources), (
+        f"no backend entry among the bundled resources: {resources}"
+    )
 
 
 def _csp_directive(csp: str, name: str) -> list[str]:

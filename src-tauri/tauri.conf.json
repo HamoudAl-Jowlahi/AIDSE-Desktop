@@ -42,9 +42,9 @@
         "installMode": "currentUser"
       }
     },
-    "externalBin": [
-      "binaries/aidse-backend"
-    ]
+    "resources": {
+      "../dist/aidse-backend": "backend/"
+    }
   },
   "plugins": {}
 }
