@@ -231,48 +231,55 @@ Closes the **last critical security gap** and shrinks the installer from
 
 | # | Task | State |
 |---|---|---|
-| 1 | Add `@tauri-apps/api` | ✅ done |
-| 2 | Spawn the sidecar from `main.rs` | ✅ `SidecarManager::spawn()` |
-| 3 | Random 256-bit token via `--token` | ✅ done |
+| 1 | Add `@tauri-apps/api` | ✅ |
+| 2 | Spawn the backend from Rust | ✅ `SidecarManager::spawn()` |
+| 3 | Random 256-bit token via `--token` | ✅ |
 | 4 | Frontend handshake (`lib/sidecar.ts`) | ✅ awaited inside `request()` |
-| 5 | Random free port | ✅ `find_free_loopback_port()` in Rust |
-| 6 | Middleware enforcement | ✅ enforced **when a token is set** — see caveat below |
-| 7 | **Rebuild the sidecar binary** | ❌ **NOT DONE — do this before any bundle** |
-| 8 | Real minisign key | ❌ not done (updater config currently removed) |
-| 9 | **`npm run tauri build` end to end** | ❌ never attempted |
+| 5 | Random free port | ✅ and the sidecar now honours it strictly |
+| 6 | Middleware enforcement | ✅ **verified on the packaged exe** |
+| 7 | Rebuild the sidecar | ✅ rebuilt, migrations + keyring confirmed inside it |
+| 8 | Bundle the backend correctly | ✅ `bundle.resources` (see below) |
+| 9 | Root `package.json` + Tauri CLI | ✅ neither existed |
+| 10 | `tauri build` produces a working app | 🔄 compiling; **never run before** |
+| 11 | Launch the bundle and confirm the handshake | ❌ |
+| 12 | Real minisign key | ❌ |
 
-**Caveat on #6, important:** enforcement is conditional on a token existing,
-and that is a hard limit, not laziness. A plain browser window cannot attach a
-custom header, so the **Edge launcher (`Launch-AIDSE.vbs`) — which is still
-what ships — cannot supply a token and cannot be protected this way.** Only the
-Tauri shell can. `warn_if_unprotected()` logs this at startup.
-So the security gap closes **only when the Tauri build replaces the launcher**
-(tasks 7 and 9).
+**Verified against the packaged executable, not just source:**
 
-**`/health` is deliberately exempt** from token checks so the launcher's
-readiness poll keeps working.
+```
+no token      -> 403      alembic_version = 2107bfe05bb2 (19 tables)
+wrong token   -> 403      app secret -> Windows Credential Manager
+correct token -> 200      (no file fallback, so the keyring hidden
+/health       -> 200       import took effect)
+```
 
-**Next concrete steps:**
-1. Rebuild the sidecar: `pyinstaller infrastructure/desktop/sidecar.spec`,
-   then copy the exe to `src-tauri/binaries/aidse-backend-x86_64-pc-windows-msvc.exe`
-2. `cd apps/web && npm run build` (Tauri serves `out/`)
-3. `npx tauri build` — **never run yet**; expect first-build issues
-4. Launch the bundled app and confirm: sidecar starts, handshake succeeds,
-   API calls carry the token, and a request **without** it gets 403
-5. `tauri signer generate` → restore the updater block with a real 42-byte key
+**Two structural faults found while packaging:**
 
-**⚠️ Item 6 is the actual security fix.** Right now `AIDSE_INTERNAL_TOKEN` is
-never set, so `InternalTokenMiddleware` admits every request — and desktop mode
-grants an automatic admin session. **Any process running as the user can call
-the entire API.** When this lands, replace the test
-`test_unconfigured_token_currently_fails_open` (which documents the gap) with
-one asserting rejection.
+1. **`externalBin` could never have worked.** It copies one file; PyInstaller
+   emits a directory (60 MB stub + 790 MB `_internal` holding the Python DLL).
+   Running the committed stub alone gives `Failed to load Python DLL`. Any
+   Tauri bundle built from that config would have shipped a window with no
+   backend. Now bundled via `bundle.resources` and launched by path with
+   `std::process::Command` — which also means the webview needs no shell
+   permission, so `shell:allow-execute` stayed removed.
+2. **The Tauri CLI was never installed** and there was no root `package.json`.
+   `npx tauri build` failed outright, which means the desktop bundle had not
+   been produced on this machine even once.
 
-**⚠️ Item 7 is easy to forget.** Building Tauri with the existing binary would
-ship a backend containing `DROP TABLE`, broken migrations, the confusion-matrix
-bug and the false encryption claims.
+**Correct the size expectation.** Earlier notes claimed Tauri would take the
+installer from 353 MB to ~15 MB. That is wrong. Tauri swaps a ~150 MB Electron
+shell for a ~10 MB one, but the Python + ML runtime is 848 MB regardless, so
+the installer stays near 350 MB. What Tauri actually buys: the internal token
+(the last critical security gap), no dependency on an installed Edge, lower
+memory, and a native window.
 
-Estimate for what remains: 2–3 days.
+**Remaining, in order:**
+1. Finish `npx tauri build` (drop `--no-bundle` for the installer)
+2. Launch the bundled app; confirm the backend starts, the handshake succeeds,
+   and API calls carry the token
+3. `npx tauri signer generate` → restore the updater block with a 42-byte key
+4. Decide the fate of `Launch-AIDSE.vbs`: it cannot send a header, so it
+   cannot be protected. Once the Tauri bundle works, retire it.
 
 ### Phase 5 — Dependencies & size (2–3 days)
 - `requirements.txt` has **no pinned versions** despite claiming "pinned for
