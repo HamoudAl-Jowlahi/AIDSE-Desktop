@@ -51,7 +51,16 @@ hiddenimports = [
     'kombu.transport',
     'kombu.transport.redis',
     'kombu.transport.memory',
-] + collect_submodules('apps.api') + collect_submodules('services')
+    # vault.py imports keyring inside a try/except, so PyInstaller cannot see
+    # it by static analysis. Without these the packaged app silently falls back
+    # to the file-based secret instead of Windows Credential Manager.
+    'keyring',
+    'keyring.backends',
+    'keyring.backends.Windows',
+    'keyring.backends.fail',
+    'win32ctypes.core',
+    'win32ctypes.core.cffi',
+] + collect_submodules('apps.api') + collect_submodules('services') + collect_submodules('keyring')
 
 datas = [
     # The migration scripts and the alembic.ini the runner resolves from the

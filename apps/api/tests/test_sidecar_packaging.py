@@ -10,11 +10,22 @@ from apps.api.sidecar_entry import parse_args
 
 
 def test_sidecar_parse_args_defaults():
-    """Verify sidecar_entry parses default host, port, and token."""
+    """
+    With no --port, the parser yields None rather than 8010.
+
+    That distinction carries weight: an explicitly requested port means the
+    caller has already told something else to expect it — the Tauri shell hands
+    the same number to its window — so main() binds it or exits. Only when no
+    port was asked for does it fall back to scanning from 8010.
+    """
     args = parse_args([])
     assert args.host == os.getenv("APP_HOST", "127.0.0.1")
-    assert args.port == int(os.getenv("APP_PORT", "8010"))
+    assert args.port is None, "an unspecified port must stay distinguishable from a chosen one"
     assert args.token == ""
+
+
+def test_explicit_port_is_taken_literally():
+    assert parse_args(["--port", "54321"]).port == 54321
 
 
 def test_sidecar_parse_args_custom():

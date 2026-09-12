@@ -80,7 +80,9 @@ def find_available_port(host: str = "127.0.0.1", preferred_port: int = 8010, max
 def parse_args(args_list: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="AIDSE FastAPI Sidecar Process")
     parser.add_argument("--host", type=str, default=os.getenv("APP_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("APP_PORT", "8010")))
+    # Default None so an explicitly requested port can be told apart from the
+    # fallback. The Tauri shell always passes one it has already reserved.
+    parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--token", type=str, default=os.getenv("AIDSE_INTERNAL_TOKEN", ""))
     return parser.parse_args(args_list)
 
@@ -89,12 +91,31 @@ def main(args_list: list[str] | None = None) -> None:
     args = parse_args(args_list)
 
     # If requested port is in use, automatically pick next available port
-    target_port = args.port
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    if args.port is not None:
+        # A port was requested explicitly, which means the caller has already
+        # told something else to expect it — the Tauri shell hands the very
+        # same number to its window. Quietly moving elsewhere would leave the
+        # window talking to a port with nothing behind it, so fail loudly
+        # instead.
+        target_port = args.port
         try:
-            s.bind((args.host, target_port))
-        except OSError:
-            target_port = find_available_port(args.host, preferred_port=8010)
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+                probe.bind((args.host, target_port))
+        except OSError as exc:
+            raise SystemExit(
+                f"Port {target_port} on {args.host} is not available ({exc}). "
+                "It was requested explicitly, so refusing to start on a "
+                "different one."
+            )
+    else:
+        # No explicit port: pick one, starting from the historical default that
+        # Launch-AIDSE reads back out of port.txt.
+        target_port = int(os.getenv("APP_PORT", "8010"))
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind((args.host, target_port))
+            except OSError:
+                target_port = find_available_port(args.host, preferred_port=8010)
 
     # Pass configuration to environment for Settings and token middleware
     os.environ["APP_HOST"] = args.host
