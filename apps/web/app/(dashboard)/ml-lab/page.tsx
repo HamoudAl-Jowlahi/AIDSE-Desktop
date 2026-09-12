@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { notify } from "@/lib/notifications";
 import {
   automl as automlApi,
   datasets as datasetsApi,
@@ -284,7 +285,27 @@ function TrainingFlow({
       try {
         const fresh = await automlApi.getExperiment(projectId, experiment.id);
         setExperiment(fresh);
-        if (fresh.status === "completed" || fresh.status === "failed") clearInterval(t);
+        if (fresh.status === "completed" || fresh.status === "failed") {
+          clearInterval(t);
+          // Training runs for minutes; the user has usually navigated away by
+          // the time it lands, so record the outcome where they can find it.
+          const trialCount = fresh.trials?.length ?? 0;
+          if (fresh.status === "completed") {
+            notify({
+              type: "success",
+              title: "Training finished",
+              message: `${trialCount} model${trialCount === 1 ? "" : "s"} trained for "${fresh.target_column}". Open ML Lab to compare them.`,
+              href: "/ml-lab",
+            });
+          } else {
+            notify({
+              type: "error",
+              title: "Training failed",
+              message: fresh.error_message || "The experiment ended without producing a model.",
+              href: "/ml-lab",
+            });
+          }
+        }
       } catch { /* transient */ }
     }, 3000);
     return () => clearInterval(t);
@@ -308,8 +329,15 @@ function TrainingFlow({
         algorithms: selectedModels.size > 0 ? [...selectedModels] : undefined,
       });
       setExperiment(exp);
+      notify({
+        type: "info",
+        title: "Training started",
+        message: `Fitting models for "${targetColumn}". You can leave this page; the result will appear here.`,
+        href: "/ml-lab",
+      });
     } catch (e: any) {
       setError(e.message);
+      notify({ type: "error", title: "Could not start training", message: e.message });
     } finally {
       setSubmitting(false);
     }
@@ -551,7 +579,7 @@ function EvaluationPanel({ projectId, experimentId }: {
               </span>
             </div>
             <div className="text-3xl font-bold mono mb-1.5" style={{ color: "var(--color-on-surface)" }}>
-              {m.value.toFixed(4).replace(/\.?0+$/, "") || "0"}
+              {fmt(m.value)}
             </div>
             <p className="text-xs leading-relaxed" style={{ color: "var(--color-on-surface-variant)" }}>
               {m.explanation}
@@ -673,9 +701,17 @@ function Leaderboard({ experiment, projectId }: { experiment: ExperimentResponse
       : (b.primary_metric_score ?? -Infinity) - (a.primary_metric_score ?? -Infinity)
   );
 
+  // Scalar metrics only. metrics also carries confusion_matrix and per_class,
+  // which are nested objects rendered by their own components — feeding them
+  // to a numeric formatter threw "toFixed is not a function" and took the
+  // whole page down with a client-side exception.
   const metricKeys = useMemo(() => {
     const keys = new Set<string>();
-    for (const t of trials) Object.keys(t.metrics ?? {}).forEach((k) => keys.add(k));
+    for (const t of trials) {
+      for (const [k, v] of Object.entries(t.metrics ?? {})) {
+        if (typeof v === "number" && Number.isFinite(v)) keys.add(k);
+      }
+    }
     return [...keys];
   }, [trials]);
 
@@ -792,8 +828,11 @@ function EmptyState({ icon, title, description, cta, href }: {
   );
 }
 
-function fmt(v: number | null | undefined): string {
-  if (v == null) return "—";
+function fmt(v: unknown): string {
+  // Guards against anything that is not a finite number: metrics legitimately
+  // contains nested objects, and a stray one used to crash the page rather
+  // than render a dash.
+  if (typeof v !== "number" || !Number.isFinite(v)) return "—";
   return Math.abs(v) >= 1000 ? v.toExponential(2) : v.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
 }
 

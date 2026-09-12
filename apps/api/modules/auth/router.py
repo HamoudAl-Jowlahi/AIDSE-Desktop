@@ -30,6 +30,7 @@ from apps.api.modules.auth.schemas import (
     UserOut,
 )
 from apps.api.core.crypto import decrypt_value, encrypt_value
+from apps.api.core.config import get_settings
 from apps.api.core.rate_limit import limiter
 from apps.api.modules.auth.service import AuthError, DuplicateEmailError
 
@@ -209,7 +210,9 @@ from pydantic import BaseModel, Field
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(default="", description="Current password if previously set")
-    new_password: str = Field(..., min_length=6, description="New password")
+    # Empty clears the lock. Anything else must be at least 6 characters —
+    # validated in the handler so "remove it" stays expressible.
+    new_password: str = Field(..., description="New password, or empty to remove the lock")
 
 
 @router.post(
@@ -239,14 +242,23 @@ async def change_password(
         if not verify_password(payload.current_password, user_record.password_hash):
             raise HTTPException(status_code=400, detail="Current password is incorrect")
 
-    new_hash = hash_password(payload.new_password)
+    if payload.new_password == "":
+        # Remove the lock and return to the unrestricted local session.
+        new_hash = "local_desktop_unrestricted_session"
+        message = "Lock removed. AIDSE will open without a password."
+    elif len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    else:
+        new_hash = hash_password(payload.new_password)
+        message = "Password updated successfully"
+
     await db.execute(
         update(User)
         .where((User.id == current_user.id) | (User.email == current_user.email))
         .values(password_hash=new_hash)
     )
     await db.commit()
-    return {"status": "ok", "message": "Password updated successfully"}
+    return {"status": "ok", "message": message}
 
 
 class VerifyPasswordPayload(BaseModel):
@@ -259,7 +271,9 @@ class VerifyPasswordPayload(BaseModel):
     summary="Verify application access password",
     description="Validates entered password for unlocking the local workspace.",
 )
+@limiter.limit(get_settings().RATE_LIMIT_AUTH)
 async def verify_app_password(
+    request: Request,
     payload: VerifyPasswordPayload,
     db: AsyncSession = Depends(get_db),
 ) -> dict:

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { datasets as datasetsApi, type DatasetResponse, type DatasetVersionResponse } from "@/lib/api";
 import WorkspaceTabs from "@/components/layout/WorkspaceTabs";
+import { notify } from "@/lib/notifications";
 
 // --- Upload Modal ---
 function UploadFileModal({
@@ -31,8 +32,22 @@ function UploadFileModal({
     try {
       const version = await datasetsApi.uploadFile(projectId, datasetId, file);
       onUploaded(version);
+      const rows = version.profile_data?.num_rows;
+      notify({
+        type: "success",
+        title: "Dataset uploaded",
+        message: rows
+          ? `${file.name} — ${rows.toLocaleString()} rows profiled.`
+          : `${file.name} uploaded. Profiling is running in the background.`,
+        href: `/projects/${projectId}/datasets/${datasetId}`,
+      });
     } catch (err: any) {
       setError(err.message || "Failed to upload file");
+      notify({
+        type: "error",
+        title: "Upload failed",
+        message: `${file.name}: ${err.message || "the file could not be read"}`,
+      });
     } finally {
       setLoading(false);
     }

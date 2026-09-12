@@ -1,7 +1,8 @@
 "use client";
 /**
  * AIDSE Platform — Project Detail Page
- * Shows project info, members table, and invite member modal.
+ * Shows project info, datasets and the audit trail. Members and invitations
+ * were removed with the move to a single-user desktop app.
  */
 import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
@@ -10,122 +11,10 @@ import Link from "next/link";
 import {
   projects as projectsApi,
   type ProjectOut,
-  type MemberOut,
   type AuditLogOut,
   type DatasetResponse,
   datasets as datasetsApi,
 } from "@/lib/api";
-
-function InviteMemberModal({
-  projectId,
-  onClose,
-  onInvited,
-}: {
-  projectId: string;
-  onClose: () => void;
-  onInvited: (m: MemberOut) => void;
-}) {
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"viewer" | "editor" | "admin">("viewer");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const member = await projectsApi.inviteMember(projectId, { email, role });
-      onInvited(member);
-    } catch (err: unknown) {
-      setError(
-        (err as { data?: { error?: { message?: string } } })?.data?.error?.message ??
-          "Failed to invite member"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="glass-panel rounded-2xl p-8 w-full max-w-md animate-fade-in">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold" style={{ color: "var(--color-on-surface)" }}>
-            Invite Member
-          </h2>
-          <button onClick={onClose} style={{ color: "var(--color-on-surface-variant)" }}>
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        {error && (
-          <div
-            className="mb-4 p-3 rounded-lg text-sm"
-            style={{
-              background: "rgba(147,0,10,0.2)",
-              border: "1px solid rgba(255,180,171,0.3)",
-              color: "var(--color-error)",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium mb-1.5 mono" style={{ color: "var(--color-on-surface-variant)" }}>
-              EMAIL ADDRESS
-            </label>
-            <input
-              id="invite-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="colleague@example.com"
-              required
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1.5 mono" style={{ color: "var(--color-on-surface-variant)" }}>
-              ROLE
-            </label>
-            <select
-              id="invite-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as "viewer" | "editor" | "admin")}
-              className="input-field"
-              style={{ cursor: "pointer" }}
-            >
-              <option value="viewer">Viewer — can view results</option>
-              <option value="editor">Editor — can create and edit</option>
-              <option value="admin">Admin — can manage members</option>
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-ghost flex-1">
-              Cancel
-            </button>
-            <button
-              id="invite-submit"
-              type="submit"
-              disabled={loading}
-              className="btn-primary flex-1"
-              style={{ opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? "Inviting..." : "Send Invite"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function CreateDatasetModal({
   projectId,
@@ -260,12 +149,10 @@ export default function ProjectDetailPage() {
   const pathname = usePathname();
   const routeId = params.id === "default" ? pathname.split("/").filter(Boolean)[1] : params.id;
   const [project, setProject] = useState<ProjectOut | null>(null);
-  const [members, setMembers] = useState<MemberOut[]>([]);
   const [logs, setLogs] = useState<AuditLogOut[]>([]);
   const [datasetsList, setDatasetsList] = useState<DatasetResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "members" | "datasets" | "audit">("overview");
-  const [showInvite, setShowInvite] = useState(false);
+  const [tab, setTab] = useState<"overview" | "datasets" | "audit">("overview");
   const [showCreateDataset, setShowCreateDataset] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -332,9 +219,6 @@ export default function ProjectDetailPage() {
             >
               {project.project_type}
             </span>
-            <span className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-              {project.member_count} {project.member_count === 1 ? "member" : "members"}
-            </span>
           </div>
           {project.description && (
             <p className="mt-2 text-sm max-w-xl" style={{ color: "var(--color-on-surface-variant)" }}>
@@ -361,16 +245,6 @@ export default function ProjectDetailPage() {
             <span className="material-symbols-outlined text-base">delete</span>
             Delete Project
           </button>
-          <button
-            id="invite-member-btn"
-            onClick={() => setShowInvite(true)}
-            className="btn-primary text-xs"
-          >
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>
-              person_add
-            </span>
-            Invite Member
-          </button>
         </div>
       </div>
 
@@ -383,7 +257,7 @@ export default function ProjectDetailPage() {
           width: "fit-content",
         }}
       >
-        {(["overview", "members", "datasets", "audit"] as const).map((t) => (
+        {(["overview", "datasets", "audit"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -415,7 +289,6 @@ export default function ProjectDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
               { label: "Type", value: project.project_type },
-              { label: "Members", value: project.member_count.toString() },
               { label: "Created", value: new Date(project.created_at).toLocaleDateString() },
             ].map((item) => (
               <div
@@ -447,63 +320,6 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {tab === "members" && (
-        <div className="glass-panel rounded-xl overflow-hidden">
-          <div
-            className="p-5 flex justify-between items-center"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}
-          >
-            <h2 className="text-lg font-semibold" style={{ color: "var(--color-on-surface)" }}>
-              Members
-            </h2>
-            <button onClick={() => setShowInvite(true)} className="btn-ghost text-xs">
-              <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>person_add</span>
-              Invite
-            </button>
-          </div>
-          {members.length === 0 ? (
-            <div className="p-8 text-center text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-              Load members by refreshing — member list requires a /members endpoint (Phase 1).
-            </div>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr style={{ background: "rgba(35,43,44,0.3)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                  {["Name", "Email", "Role", "Joined"].map((h) => (
-                    <th key={h} className="p-4 mono text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
-                      {h.toUpperCase()}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((m) => (
-                  <tr
-                    key={m.id}
-                    className="transition-colors"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <td className="p-4 text-sm font-medium" style={{ color: "var(--color-on-surface)" }}>
-                      {m.user_name ?? "—"}
-                    </td>
-                    <td className="p-4 text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-                      {m.user_email ?? "—"}
-                    </td>
-                    <td className="p-4">
-                      <span className={ROLE_BADGE[m.role] ?? "badge-neutral"}>{m.role}</span>
-                    </td>
-                    <td className="p-4 mono text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
-                      {new Date(m.invited_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
 
       {tab === "datasets" && (
         <div className="glass-panel rounded-xl overflow-hidden">
@@ -617,17 +433,6 @@ export default function ProjectDetailPage() {
       )}
       {typeof document !== "undefined" && createPortal(
         <>
-          {showInvite && (
-            <InviteMemberModal
-              projectId={routeId!}
-              onClose={() => setShowInvite(false)}
-              onInvited={(m) => {
-                setMembers((prev) => [...prev, m]);
-                setShowInvite(false);
-                if (tab !== "members") setTab("members");
-              }}
-            />
-          )}
 
           {showCreateDataset && (
             <CreateDatasetModal

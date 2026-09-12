@@ -6,7 +6,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { useUnreadCount } from "@/lib/use-notifications";
 import { GlobalSearchModal } from "./GlobalSearchModal";
 
 const TOP_TABS = [
@@ -15,7 +15,7 @@ const TOP_TABS = [
 
 export default function TopBar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const unreadCount = useUnreadCount();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
@@ -69,48 +69,52 @@ export default function TopBar() {
           </nav>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-3">
-          {/* Notifications button */}
-          <Link
-            href="/notifications"
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/5 flex items-center justify-center"
-            style={{ color: "var(--color-on-surface-variant)" }}
-            title="Notifications"
-          >
-            <span className="material-symbols-outlined">notifications</span>
-          </Link>
+        {/* Right: Actions
+         *
+         * No account avatar here. This is a single-user desktop app with no
+         * sign-in, so an avatar and a "log out" action described a multi-user
+         * platform that no longer exists. The icon actions are grouped and set
+         * apart from the primary button so they stop competing with it.
+         */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            <Link
+              href="/notifications"
+              className="relative p-1.5 rounded-lg transition-colors hover:bg-white/5 flex items-center justify-center"
+              style={{ color: "var(--color-on-surface-variant)" }}
+              title="Notifications"
+              aria-label={
+                unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"
+              }
+            >
+              <span className="material-symbols-outlined">notifications</span>
+              {unreadCount > 0 && (
+                <span
+                  className="absolute top-0.5 right-0.5 min-w-[1rem] h-4 px-1 rounded-full text-[10px] font-bold leading-4 text-center"
+                  style={{
+                    background: "var(--color-error)",
+                    color: "var(--color-on-error, #fff)",
+                  }}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </Link>
 
-          {/* Settings */}
-          <Link
-            href="/settings"
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/5 flex items-center justify-center"
-            style={{ color: "var(--color-on-surface-variant)" }}
-            title="Settings"
-          >
-            <span className="material-symbols-outlined">settings</span>
-          </Link>
+            <Link
+              href="/settings"
+              className="p-1.5 rounded-lg transition-colors hover:bg-white/5 flex items-center justify-center"
+              style={{ color: "var(--color-on-surface-variant)" }}
+              title="Settings"
+              aria-label="Settings"
+            >
+              <span className="material-symbols-outlined">settings</span>
+            </Link>
+          </div>
 
-          {/* Create New button */}
           <Link href="/projects" className="btn-primary text-xs" style={{ padding: "0.375rem 0.875rem" }}>
             Create New
           </Link>
-
-          {/* User avatar */}
-          {user && (
-            <button
-              onClick={logout}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all"
-              style={{
-                background: "var(--color-secondary-container)",
-                color: "var(--color-secondary)",
-                border: "1px solid rgba(255,255,255,0.2)",
-              }}
-              title={`${user.name} — Click to logout`}
-            >
-              {user.name.charAt(0).toUpperCase()}
-            </button>
-          )}
         </div>
       </header>
 

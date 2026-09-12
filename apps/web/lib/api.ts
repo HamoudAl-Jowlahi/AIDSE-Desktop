@@ -11,13 +11,29 @@ let _internalToken: string | null = null;
 
 export function getApiBase(): string {
   if (_apiBase) return _apiBase;
+
+  // In the packaged app the backend serves this page, so the API is always on
+  // the same origin — and that is the only answer that survives the port
+  // changing. The sidecar falls forward to 8011, 8012 … whenever 8010 is
+  // taken, and .env.local bakes NEXT_PUBLIC_API_URL=127.0.0.1:8010 into the
+  // bundle at build time. Consulting that first meant every request went to a
+  // port nothing was listening on, and the whole app failed with "not found"
+  // errors that looked like missing data.
+  const origin =
+    typeof window !== "undefined" && window.location?.origin
+      ? `${window.location.origin}/api/v1`
+      : null;
+
+  if (origin && process.env.NODE_ENV !== "development") {
+    return origin;
+  }
+
+  // `next dev` serves the page on :3000 while the API listens elsewhere, so
+  // the explicit override is only meaningful during development.
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return `${window.location.origin}/api/v1`;
-  }
-  return "http://127.0.0.1:8010/api/v1";
+  return origin ?? "http://127.0.0.1:8010/api/v1";
 }
 
 export function setApiBase(url: string): void {
@@ -287,6 +303,16 @@ export const auth = {
     }),
 
   me: () => request<UserOut>("/auth/me"),
+
+  /** Whether a master password is configured, i.e. whether to show the lock. */
+  hasPassword: () => request<{ has_password: boolean }>("/auth/has-password"),
+
+  /** Check the master password. Rejects on a wrong password or rate limit. */
+  verifyPassword: (password: string) =>
+    request<{ valid: boolean; message: string }>("/auth/verify-password", {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
 };
 
 // ── Projects API ───────────────────────────────────────────────────────────

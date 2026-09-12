@@ -14,6 +14,7 @@ import {
 import {
   auth as authApi,
   clearTokens,
+  getApiBase,
   setAccessToken,
   type UserOut,
 } from "./api";
@@ -104,8 +105,9 @@ const LOCAL_DESKTOP_USER: UserOut = {
       return;
     }
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8010/api/v1";
-    fetch(`${apiBase}/auth/refresh`, {
+    // Use the same resolution as every other call rather than a second copy of
+    // the hardcoded port, which pointed at 8010 no matter where the sidecar was.
+    fetch(`${getApiBase()}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: cookieRefresh }),

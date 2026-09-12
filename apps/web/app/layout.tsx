@@ -1,8 +1,10 @@
 /**
  * AIDSE Platform — Root Layout
- * Uses CSS variable fonts declared in globals.css.
- * Note: next/font/google is avoided since it requires network access to Google
- * Fonts CDN at build time — fonts are loaded via <link> in globals.css instead.
+ *
+ * Fonts are declared in globals.css and served from public/fonts. There is
+ * deliberately no <link> to fonts.googleapis.com here: this app runs offline,
+ * and pulling the icon font over the network meant every icon showed as its
+ * ligature name ("dashboard", "lock") on any machine without a connection.
  */
 import type { Metadata } from "next";
 import "./globals.css";
@@ -21,15 +23,8 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <head>
-        {/* Inter + JetBrains Mono + Material Symbols via Google Fonts CDN */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
-        />
-      </head>
+      <head />
+
       <body className="min-h-full antialiased">
         <ThemeProvider
           attribute="class"

@@ -10,9 +10,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import {
+  automl as automlApi,
   datasets as datasetsApi,
+  evaluations as evaluationsApi,
   projects as projectsApi,
+  quality as qualityApi,
   type DatasetResponse,
+  type EvaluationRunSummary,
+  type ExperimentResponse,
   type ProjectOut,
 } from "@/lib/api";
 
@@ -124,6 +129,10 @@ export default function DashboardPage() {
   const [projectList, setProjectList] = useState<ProjectOut[]>([]);
   const [activeProject, setActiveProject] = useState<ProjectOut | null>(null);
   const [projectDatasets, setProjectDatasets] = useState<DatasetResponse[]>([]);
+  const [experiments, setExperiments] = useState<ExperimentResponse[]>([]);
+  const [evalRuns, setEvalRuns] = useState<EvaluationRunSummary[]>([]);
+  const [qualityTotals, setQualityTotals] = useState<{ critical: number; warning: number } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(true);
 
   useEffect(() => {
@@ -137,14 +146,61 @@ export default function DashboardPage() {
       .finally(() => setLoadingProjects(false));
   }, []);
 
-  // Load datasets of the active project for the summary KPI + recent analyses
+  // Load everything the header and KPI tiles report on. Each call is
+  // independently guarded so one empty module does not blank the whole row.
   useEffect(() => {
     if (!activeProject) return;
+    const projectId = activeProject.id;
+    let cancelled = false;
+
     setProjectDatasets([]);
-    datasetsApi
-      .list(activeProject.id)
-      .then(setProjectDatasets)
-      .catch(() => {});
+    setExperiments([]);
+    setEvalRuns([]);
+    setQualityTotals(null);
+    setLoadingStats(true);
+
+    (async () => {
+      const [dsets, exps, runs] = await Promise.all([
+        datasetsApi.list(projectId).catch(() => [] as DatasetResponse[]),
+        automlApi.listExperiments(projectId).catch(() => [] as ExperimentResponse[]),
+        evaluationsApi.listRuns(projectId).catch(() => [] as EvaluationRunSummary[]),
+      ]);
+      if (cancelled) return;
+
+      setProjectDatasets(dsets);
+      setExperiments(exps);
+      setEvalRuns(runs);
+
+      // Quality lives per dataset version, so total it across the latest
+      // version of every dataset rather than inventing a number.
+      const latest = dsets
+        .map((d) => ({ datasetId: d.id, version: d.versions?.[d.versions.length - 1] }))
+        .filter((x) => x.version);
+
+      const reports = await Promise.all(
+        latest.map((x) =>
+          qualityApi
+            .getVersionReport(projectId, x.datasetId, x.version!.id)
+            .catch(() => null),
+        ),
+      );
+      if (cancelled) return;
+
+      const usable = reports.filter((r) => r && r.summary?.available);
+      setQualityTotals(
+        usable.length === 0
+          ? null
+          : {
+              critical: usable.reduce((n, r) => n + (r!.summary.critical ?? 0), 0),
+              warning: usable.reduce((n, r) => n + (r!.summary.warning ?? 0), 0),
+            },
+      );
+      setLoadingStats(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeProject]);
 
   const greeting = () => {
@@ -155,30 +211,73 @@ export default function DashboardPage() {
   };
 
   const datasetCount = projectDatasets.length;
-  const profiledCount = projectDatasets.filter((d) => d.versions?.[d.versions.length - 1]?.profile_data).length;
+  const idle = loadingProjects || !activeProject;
+  const busy = idle || loadingStats;
+
+  const qualityIssueCount = qualityTotals
+    ? qualityTotals.critical + qualityTotals.warning
+    : 0;
+
+  // Everything that genuinely needs the user's attention right now. The panel
+  // below renders only when this is non-empty.
+  const attention: { label: string; detail: string; href: string; tone: "error" | "warning" }[] = [];
+  if (qualityTotals && qualityTotals.critical > 0) {
+    attention.push({
+      label: `${qualityTotals.critical} critical data quality ${qualityTotals.critical === 1 ? "issue" : "issues"}`,
+      detail: "Fix these before training, or the models learn the defects.",
+      href: "/quality",
+      tone: "error",
+    });
+  }
+  const failedExperiments = experiments.filter((e) => e.status === "failed");
+  if (failedExperiments.length > 0) {
+    attention.push({
+      label: `${failedExperiments.length} training ${failedExperiments.length === 1 ? "run" : "runs"} failed`,
+      detail: "Open ML Lab to see why the experiment stopped.",
+      href: "/ml-lab",
+      tone: "error",
+    });
+  }
+  const failedRuns = evalRuns.filter((r) => r.status === "failed");
+  if (failedRuns.length > 0) {
+    attention.push({
+      label: `${failedRuns.length} evaluation ${failedRuns.length === 1 ? "run" : "runs"} failed`,
+      detail: "Check the run detail for the scoring error.",
+      href: "/evaluations",
+      tone: "error",
+    });
+  }
+  if (qualityTotals && qualityTotals.critical === 0 && qualityTotals.warning > 0) {
+    attention.push({
+      label: `${qualityTotals.warning} data quality ${qualityTotals.warning === 1 ? "warning" : "warnings"}`,
+      detail: "Worth reviewing, but nothing is blocking training.",
+      href: "/quality",
+      tone: "warning",
+    });
+  }
 
   const kpis = [
     {
       label: "Datasets",
-      value: loadingProjects || !activeProject ? "—" : datasetCount,
+      value: idle ? "—" : datasetCount,
       icon: "database",
       iconColor: "var(--color-primary-container)",
     },
     {
       label: "Quality issues",
-      value: loadingProjects || !activeProject ? "—" : profiledCount > 0 ? "0 issues" : "—",
+      value: busy ? "—" : qualityTotals ? qualityIssueCount : "Not profiled",
       icon: "fact_check",
       iconColor: "var(--color-error)",
     },
     {
       label: "Model runs",
-      value: "—",
+      value: busy ? "—" : experiments.length,
       icon: "model_training",
       iconColor: "var(--color-tertiary-container)",
     },
     {
       label: "Evaluation runs",
-      value: "—",
+      value: busy ? "—" : evalRuns.length,
       icon: "assignment_turned_in",
       iconColor: "var(--color-secondary)",
     },
@@ -217,14 +316,24 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+        {/* The Filter and "Last 7 Days" buttons that sat here were inert —
+            they had no handler and nothing on this page is filterable or time
+            ranged. A refresh that genuinely re-reads the project is more use
+            than two controls that do nothing. */}
         <div className="flex gap-2">
-          <button className="btn-ghost">
-            <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>filter_list</span>
-            Filter
-          </button>
-          <button className="btn-ghost">
-            <span className="material-symbols-outlined" style={{ fontSize: "1rem" }}>calendar_today</span>
-            Last 7 Days
+          <button
+            onClick={() => setActiveProject((p) => (p ? { ...p } : p))}
+            disabled={!activeProject || loadingStats}
+            className="btn-ghost"
+            title="Reload this project's datasets, runs and quality reports"
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: "1rem" }}
+            >
+              refresh
+            </span>
+            {loadingStats ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
@@ -345,26 +454,64 @@ export default function DashboardPage() {
 
         {/* Right Column — 1/3 */}
         <div className="space-y-6">
-          {/* Needs Attention */}
-          <div
-            className="glass-panel rounded-xl p-5 animate-fade-in delay-2"
-            style={{
-              border: "1px solid rgba(255,180,171,0.15)",
-              boxShadow: "0 0 20px rgba(147,0,10,0.08)",
-            }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined" style={{ color: "var(--color-error)" }}>
-                notification_important
-              </span>
-              <h2 className="text-xl font-semibold" style={{ color: "var(--color-on-surface)" }}>
-                Needs attention
-              </h2>
+          {/* Needs attention — rendered only when something actually does.
+              It used to show unconditionally with fixed text describing what
+              *would* appear, which meant a permanent red-bordered alert on a
+              perfectly healthy project. */}
+          {attention.length > 0 && (
+            <div
+              className="glass-panel rounded-xl p-5 animate-fade-in delay-2"
+              style={{
+                border: "1px solid rgba(255,180,171,0.15)",
+                boxShadow: "0 0 20px rgba(147,0,10,0.08)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined" style={{ color: "var(--color-error)" }}>
+                  notification_important
+                </span>
+                <h2 className="text-xl font-semibold" style={{ color: "var(--color-on-surface)" }}>
+                  Needs attention
+                </h2>
+              </div>
+
+              <ul className="space-y-2.5">
+                {attention.map((item) => (
+                  <li key={item.href + item.label}>
+                    <Link href={item.href} className="flex items-start gap-2.5 group">
+                      <span
+                        className="material-symbols-outlined shrink-0"
+                        style={{
+                          fontSize: "1.1rem",
+                          marginTop: "0.1rem",
+                          color:
+                            item.tone === "error"
+                              ? "var(--color-error)"
+                              : "var(--color-tertiary-container)",
+                        }}
+                      >
+                        {item.tone === "error" ? "error" : "warning"}
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className="text-sm font-medium block group-hover:underline"
+                          style={{ color: "var(--color-on-surface)" }}
+                        >
+                          {item.label}
+                        </span>
+                        <span
+                          className="text-xs"
+                          style={{ color: "var(--color-on-surface-variant)" }}
+                        >
+                          {item.detail}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <p className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-              Regression status appears here once you mark an evaluation run as baseline — newly failing cases, newly passing cases, and flaky results.
-            </p>
-          </div>
+          )}
 
           {/* Golden Datasets */}
           <div className="glass-panel rounded-xl p-5 animate-fade-in delay-3">
@@ -439,7 +586,7 @@ export default function DashboardPage() {
                         <span className="text-sm font-medium">{p.name}</span>
                       </div>
                       <span className="mono text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
-                        {p.member_count} {p.member_count === 1 ? "member" : "members"}
+                        {p.project_type}
                       </span>
                     </Link>
                   </li>

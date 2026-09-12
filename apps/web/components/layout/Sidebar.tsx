@@ -10,7 +10,6 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/lib/auth";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: "dashboard" },
@@ -30,7 +29,6 @@ const BOTTOM_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -132,34 +130,6 @@ export default function Sidebar() {
           </Link>
         ))}
 
-        {/* User pill */}
-        {user && (
-          <div
-            className="mx-4 mt-3 p-3 rounded-lg flex items-center gap-3"
-            style={{
-              background: "rgba(35,43,44,0.4)",
-              border: "1px solid rgba(255,255,255,0.07)",
-            }}
-          >
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{
-                background: "var(--color-secondary-container)",
-                color: "var(--color-secondary)",
-              }}
-            >
-              {user.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium truncate" style={{ color: "var(--color-on-surface)" }}>
-                {user.name}
-              </div>
-              <div className="text-xs truncate" style={{ color: "var(--color-on-surface-variant)" }}>
-                {user.role}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </nav>
   );

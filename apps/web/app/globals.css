@@ -4,13 +4,77 @@
  * Glass design system from Stitch (dashboard_glass.html + eval_run_glass.html).
  */
 
-/* ── Offline Local Font declarations ─────────────────────────────────────── */
+/* ── Fonts: served from the app, never from the network ───────────────────
+ *
+ * layout.tsx used to <link> all three families from fonts.googleapis.com. In
+ * an offline desktop app that means the icon font never arrives and every
+ * icon renders as its literal ligature text — "dashboard", "lock",
+ * "folder_open" — while Inter and JetBrains Mono silently fall back to
+ * whatever the system has. The files below are vendored into public/fonts so
+ * the running app makes no external request at all.
+ */
 @font-face {
   font-family: 'Material Symbols Outlined';
   font-style: normal;
   font-weight: 100 700;
-  font-display: block;
+  font-display: block;   /* block, not swap: ligature text must never flash */
   src: url('/fonts/MaterialSymbolsOutlined.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url('/fonts/inter-300.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-500.woff2') format('woff2');
 }
 
 @import "tailwindcss";

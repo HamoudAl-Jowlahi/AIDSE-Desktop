@@ -94,7 +94,7 @@ function ProjectCard({ project, onDelete }: { project: ProjectOut; onDelete?: (i
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
         >
           <span className="mono text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
-            {project.member_count} {project.member_count === 1 ? "member" : "members"}
+            {project.project_type}
           </span>
           <span className="mono text-xs" style={{ color: "var(--color-on-surface-variant)" }}>
             {new Date(project.created_at).toLocaleDateString()}

@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
+import LockScreen, { useAppLock } from "@/components/layout/LockScreen";
 import { useAuth } from "@/lib/auth";
 
 export default function DashboardLayout({
@@ -16,6 +17,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { state: lockState, unlock } = useAppLock();
   const router = useRouter();
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  if (isLoading) {
+  if (isLoading || lockState === "checking") {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -47,6 +49,11 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) return null;
+
+  // Gate the whole workspace, so no dashboard content renders behind the lock.
+  if (lockState === "locked") {
+    return <LockScreen onUnlock={unlock} />;
+  }
 
   return (
     <div className="min-h-screen flex overflow-hidden">

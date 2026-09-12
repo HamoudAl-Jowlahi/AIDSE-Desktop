@@ -66,7 +66,7 @@ export default function SettingsPage() {
 
   // Password strength calculation
   function calculatePasswordStrength(pass: string): { score: number; label: string; color: string } {
-    if (!pass) return { score: 0, label: "غير محدد", color: "#64748b" };
+    if (!pass) return { score: 0, label: "Not set", color: "#64748b" };
     let score = 0;
     if (pass.length >= 6) score += 1;
     if (pass.length >= 10) score += 1;
@@ -74,9 +74,9 @@ export default function SettingsPage() {
     if (/[0-9]/.test(pass)) score += 1;
     if (/[^A-Za-z0-9]/.test(pass)) score += 1;
 
-    if (score <= 2) return { score: 1, label: "ضعيفة", color: "#ef4444" };
-    if (score <= 3) return { score: 2, label: "متوسطة", color: "#f59e0b" };
-    return { score: 3, label: "قوية جداً", color: "#10b981" };
+    if (score <= 2) return { score: 1, label: "Weak", color: "#ef4444" };
+    if (score <= 3) return { score: 2, label: "Medium", color: "#f59e0b" };
+    return { score: 3, label: "Very strong", color: "#10b981" };
   }
 
   const passStrength = calculatePasswordStrength(newPassword);
@@ -87,11 +87,11 @@ export default function SettingsPage() {
     setPasswordFeedback(null);
 
     if (!newPassword || newPassword.length < 6) {
-      setPasswordFeedback({ type: "error", text: "يجب ألا تقل كلمة المرور الجديدة عن 6 أحرف" });
+      setPasswordFeedback({ type: "error", text: "New password must be at least 6 characters" });
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordFeedback({ type: "error", text: "كلمة المرور وتأكيدها غير متطابقين" });
+      setPasswordFeedback({ type: "error", text: "Passwords do not match" });
       return;
     }
 
@@ -101,12 +101,12 @@ export default function SettingsPage() {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      setPasswordFeedback({ type: "success", text: res.message || "تم حفظ كلمة المرور الجديدة بنجاح" });
+      setPasswordFeedback({ type: "success", text: res.message || "New password saved successfully" });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: any) {
-      setPasswordFeedback({ type: "error", text: err.message || "حدث خطأ أثناء تغيير كلمة المرور" });
+      setPasswordFeedback({ type: "error", text: err.message || "Could not change the password" });
     } finally {
       setPasswordLoading(false);
     }
@@ -120,10 +120,10 @@ export default function SettingsPage() {
     setSettingsFeedback(null);
     try {
       await desktopSystem.updateSettings(updated);
-      setSettingsFeedback("تم حفظ التفضيلات بنجاح");
+      setSettingsFeedback("Preferences saved successfully");
       setTimeout(() => setSettingsFeedback(null), 3000);
     } catch {
-      setSettingsFeedback("تعذر حفظ التفضيلات");
+      setSettingsFeedback("Could not save preferences");
     } finally {
       setSavingSettings(false);
     }
@@ -135,7 +135,7 @@ export default function SettingsPage() {
     try {
       await desktopSystem.openStorage();
     } catch (err: any) {
-      alert("تعذر فتح المجلد تلقائياً: " + (err.message || ""));
+      alert("Could not open the folder: " + (err.message || ""));
     } finally {
       setOpenFolderLoading(false);
     }
@@ -147,11 +147,11 @@ export default function SettingsPage() {
     setCacheFeedback(null);
     try {
       const res = await desktopSystem.clearCache();
-      setCacheFeedback(res.message || "تم تنظيف الذاكرة المؤقتة بنجاح");
+      setCacheFeedback(res.message || "Cache cleaned successfully");
       const refreshed = await desktopSystem.getInfo().catch(() => null);
       if (refreshed) setInfo(refreshed);
     } catch (err: any) {
-      setCacheFeedback("تعذر تنظيف الذاكرة المؤقتة: " + err.message);
+      setCacheFeedback("Could not clean the cache: " + err.message);
     } finally {
       setClearCacheLoading(false);
     }
@@ -172,17 +172,17 @@ export default function SettingsPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1" style={{ color: "var(--color-on-surface)" }}>
-            إعدادات التطبيق المحلي | Desktop Settings
+            Desktop Settings
           </h1>
           <p className="text-sm" style={{ color: "var(--color-on-surface-variant)" }}>
-            إدارة أمان التطبيق، مساحة التخزين المحلية، أداء محرك الذكاء الاصطناعي، ومظهر النظام بدون اتصال بالإنترنت.
+            Manage app security, local storage, AI engine performance, and appearance — all offline.
           </p>
         </div>
 
         {/* Engine status indicator */}
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>المحرك المحلي نشط • Port {info?.backend_port ?? 8010}</span>
+          <span>Local engine running • Port {info?.backend_port ?? 8010}</span>
         </div>
       </div>
 
@@ -197,7 +197,7 @@ export default function SettingsPage() {
           }`}
         >
           <span className="material-symbols-outlined text-lg">lock</span>
-          <span>أمان التطبيق وكلمة المرور</span>
+          <span>Security & Password</span>
         </button>
 
         <button
@@ -209,7 +209,7 @@ export default function SettingsPage() {
           }`}
         >
           <span className="material-symbols-outlined text-lg">folder_open</span>
-          <span>التخزين وقاعدة البيانات</span>
+          <span>Storage & Database</span>
         </button>
 
         <button
@@ -221,7 +221,7 @@ export default function SettingsPage() {
           }`}
         >
           <span className="material-symbols-outlined text-lg">memory</span>
-          <span>الأداء ومحرك الذكاء الاصطناعي</span>
+          <span>Performance & AI Engine</span>
         </button>
 
         <button
@@ -233,7 +233,7 @@ export default function SettingsPage() {
           }`}
         >
           <span className="material-symbols-outlined text-lg">palette</span>
-          <span>المظهر وسلوك النظام</span>
+          <span>Appearance & Behavior</span>
         </button>
 
         <button
@@ -245,7 +245,7 @@ export default function SettingsPage() {
           }`}
         >
           <span className="material-symbols-outlined text-lg">info</span>
-          <span>تشخيص النظام وحول البرنامج</span>
+          <span>Diagnostics & About</span>
         </button>
       </div>
 
@@ -258,9 +258,9 @@ export default function SettingsPage() {
                 key
               </span>
               <div>
-                <h2 className="text-lg font-semibold text-white">تغيير كلمة مرور التطبيق (Master Access Password)</h2>
+                <h2 className="text-lg font-semibold text-white">Master Access Password</h2>
                 <p className="text-xs text-slate-400">
-                  تُستخدم كلمة المرور لقفل التطبيق وحماية مشاريعك ونماذجك من الوصول غير المصرح به على هذا الجهاز.
+                  Locks the AIDSE workspace on this computer. Leave the new password empty to remove the lock.
                 </p>
               </div>
             </div>
@@ -283,20 +283,20 @@ export default function SettingsPage() {
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-mono uppercase text-slate-400 mb-1.5">
-                  كلمة المرور الحالية (Current Password)
+                  Current password
                 </label>
                 <div className="relative">
                   <input
                     type={showCurrentPassword ? "text" : "password"}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="اتركها فارغة إذا لم تقم بتعيين كلمة مرور مسبقاً"
+                    placeholder="Leave empty if no password is set yet"
                     className="input-field pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
                   >
                     <span className="material-symbols-outlined text-lg">
                       {showCurrentPassword ? "visibility_off" : "visibility"}
@@ -307,20 +307,20 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-xs font-mono uppercase text-slate-400 mb-1.5">
-                  كلمة المرور الجديدة (New Password)
+                  New password
                 </label>
                 <div className="relative">
                   <input
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="أدخل 6 أحرف على الأقل"
+                    placeholder="At least 6 characters, or empty to remove the lock"
                     className="input-field pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
                   >
                     <span className="material-symbols-outlined text-lg">
                       {showNewPassword ? "visibility_off" : "visibility"}
@@ -332,7 +332,7 @@ export default function SettingsPage() {
                 {newPassword && (
                   <div className="mt-2 space-y-1">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-400">قوة كلمة المرور:</span>
+                      <span className="text-slate-400">Password strength:</span>
                       <span style={{ color: passStrength.color }} className="font-medium">
                         {passStrength.label}
                       </span>
@@ -352,13 +352,13 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-xs font-mono uppercase text-slate-400 mb-1.5">
-                  تأكيد كلمة المرور الجديدة (Confirm New Password)
+                  Confirm new password
                 </label>
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="أعد إدخال كلمة المرور الجديدة"
+                  placeholder="Re-enter the new password"
                   className="input-field"
                 />
               </div>
@@ -372,12 +372,12 @@ export default function SettingsPage() {
                   {passwordLoading ? (
                     <>
                       <span className="w-4 h-4 rounded-full border-2 border-slate-900 border-t-transparent animate-spin" />
-                      <span>جاري الحفظ...</span>
+                      <span>Saving...</span>
                     </>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-sm">lock_reset</span>
-                      <span>حفظ كلمة المرور الجديدة</span>
+                      <span>Save password</span>
                     </>
                   )}
                 </button>
@@ -390,7 +390,7 @@ export default function SettingsPage() {
             <div className="glass-panel rounded-xl p-5 space-y-4">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2 pb-2 border-b border-white/10">
                 <span className="material-symbols-outlined text-cyan-400 text-base">shield</span>
-                <span>خيارات الصيانة</span>
+                <span>Maintenance</span>
               </h3>
 
               <div className="space-y-4">
@@ -402,8 +402,8 @@ export default function SettingsPage() {
                     className="mt-1 rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500"
                   />
                   <div>
-                    <span className="text-sm font-medium text-slate-200 block">تفريغ الذاكرة المؤقتة دورياً</span>
-                    <span className="text-xs text-slate-400">حذف نتائج التجارب المؤقتة لتوفير مساحة القرص.</span>
+                    <span className="text-sm font-medium text-slate-200 block">Clean cached files periodically</span>
+                    <span className="text-xs text-slate-400">Remove temporary experiment output to free disk space.</span>
                   </div>
                 </label>
               </div>
@@ -419,10 +419,10 @@ export default function SettingsPage() {
             <div className="glass-panel rounded-xl p-5 space-y-2 border-cyan-500/20 bg-cyan-950/20">
               <div className="flex items-center gap-2 text-cyan-400 font-semibold text-xs uppercase tracking-wider">
                 <span className="material-symbols-outlined text-sm">verified_user</span>
-                <span>تخزين مشفر ومحمي</span>
+                <span>How your password is stored</span>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                كلمات المرور تُشفر باستخدام خوارزمية <strong>bcrypt</strong> متعددة الطبقات، وتُخزن محلياً داخل قاعدة بيانات SQLite المحمية بجهازك دون إرسال أي بيانات لأي خادم سحابي.
+                Your master password is hashed with <strong>bcrypt</strong> and stored in the local SQLite database on this machine. Nothing is sent to any server. The database file itself is not encrypted, so rely on disk encryption to protect the data it holds.
               </p>
             </div>
           </div>
@@ -438,10 +438,10 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <span className="material-symbols-outlined text-cyan-400">folder</span>
-                  <span>مسار التخزين المحلي (Persistent Storage Root)</span>
+                  <span>Local storage location</span>
                 </h2>
                 <p className="text-xs text-slate-400">
-                  المجلد المعتمد لكافة مجموعات البيانات، ملفات التدريب، النماذج، وسجلات التجارب.
+                  Where datasets, trained models, and experiment records are kept.
                 </p>
               </div>
 
@@ -453,7 +453,7 @@ export default function SettingsPage() {
                   <span className="material-symbols-outlined text-sm">
                     {copiedPath ? "done" : "content_copy"}
                   </span>
-                  <span>{copiedPath ? "تم النسخ!" : "نسخ المسار"}</span>
+                  <span>{copiedPath ? "Copied" : "Copy path"}</span>
                 </button>
 
                 <button
@@ -462,7 +462,7 @@ export default function SettingsPage() {
                   className="btn-primary flex items-center gap-2 text-xs"
                 >
                   <span className="material-symbols-outlined text-sm">launch</span>
-                  <span>فتح في مستكشف ويندوز</span>
+                  <span>Open in File Explorer</span>
                 </button>
               </div>
             </div>
@@ -475,15 +475,15 @@ export default function SettingsPage() {
           {/* Disk usage bar & stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="glass-card rounded-xl p-4">
-              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">مجموعات البيانات</span>
+              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">Datasets</span>
               <div className="text-2xl font-bold text-cyan-300">
                 {info?.storage?.datasets_size_mb ?? 0} <span className="text-xs text-slate-400 font-normal">MB</span>
               </div>
-              <span className="text-xs text-slate-500 mt-1 block">ملفات CSV, Parquet, Excel</span>
+              <span className="text-xs text-slate-500 mt-1 block">CSV, Parquet, Excel files</span>
             </div>
 
             <div className="glass-card rounded-xl p-4">
-              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">النماذج والتجارب</span>
+              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">Models & experiments</span>
               <div className="text-2xl font-bold text-cyan-300">
                 {info?.storage?.models_size_mb ?? 0} <span className="text-xs text-slate-400 font-normal">MB</span>
               </div>
@@ -491,7 +491,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="glass-card rounded-xl p-4">
-              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">قاعدة البيانات المحلية</span>
+              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">Local database</span>
               <div className="text-2xl font-bold text-cyan-300">
                 {info?.storage?.db_size_mb ?? 0} <span className="text-xs text-slate-400 font-normal">MB</span>
               </div>
@@ -499,7 +499,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="glass-card rounded-xl p-4">
-              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">الملفات المؤقتة</span>
+              <span className="text-xs text-slate-400 font-mono uppercase block mb-1">Temporary files</span>
               <div className="text-2xl font-bold text-cyan-300">
                 {info?.storage?.cache_size_mb ?? 0} <span className="text-xs text-slate-400 font-normal">MB</span>
               </div>
@@ -511,9 +511,9 @@ export default function SettingsPage() {
           {info?.storage && (
             <div className="glass-panel rounded-xl p-5 space-y-3">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-slate-300 font-medium">سعة القرص الصلب المتاحة</span>
+                <span className="text-slate-300 font-medium">Available disk space</span>
                 <span className="text-cyan-400 font-mono">
-                  {info.storage.disk_free_gb} GB متاح من أصل {info.storage.disk_total_gb} GB
+                  {info.storage.disk_free_gb} GB free of {info.storage.disk_total_gb} GB
                 </span>
               </div>
               <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
@@ -530,10 +530,10 @@ export default function SettingsPage() {
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-amber-400">mop</span>
-                <span>تنظيف الذاكرة المؤقتة (Maintenance & Cache Cleanup)</span>
+                <span>Cache cleanup</span>
               </h3>
               <p className="text-xs text-slate-400">
-                حذف الملفات المؤقتة والرسوم البيانية المتروكة من تجارب AutoML لتحرير مساحة القرص دون المساس ببياناتك الأصلية.
+                Deletes temporary files and leftover plots from AutoML runs. Your datasets and trained models are untouched.
               </p>
               {cacheFeedback && (
                 <div className="text-xs text-emerald-400 pt-2 flex items-center gap-1">
@@ -549,7 +549,7 @@ export default function SettingsPage() {
               className="btn-ghost border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 flex items-center gap-2 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-base">cleaning_services</span>
-              <span>{clearCacheLoading ? "جاري التنظيف..." : "تفريغ الملفات المؤقتة الآن"}</span>
+              <span>{clearCacheLoading ? "Cleaning..." : "Clean temporary files now"}</span>
             </button>
           </div>
         </div>
@@ -562,18 +562,18 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                 <span className="material-symbols-outlined text-cyan-400">tune</span>
-                <span>تخصيص أنوية المعالج (AutoML CPU Thread Allocation)</span>
+                <span>CPU threads for AutoML</span>
               </h2>
               <p className="text-xs text-slate-400">
-                حدد عدد أنوية المعالج المخصصة لخوارزميات التدريب المتوازي (XGBoost, LightGBM, CatBoost) والبحث الفائق (Optuna).
+                How many CPU cores training and hyperparameter search may use.
               </p>
             </div>
 
             <div className="space-y-4 p-4 rounded-xl bg-slate-950/40 border border-white/5">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-slate-200">عدد الأنوية الفعالة للتدريب:</span>
+                <span className="text-sm font-medium text-slate-200">Cores used for training:</span>
                 <span className="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-sm font-bold border border-cyan-500/30">
-                  {settings.max_training_threads} أنوية
+                  {settings.max_training_threads} cores
                 </span>
               </div>
 
@@ -587,14 +587,14 @@ export default function SettingsPage() {
               />
 
               <div className="flex justify-between text-xs text-slate-500 font-mono">
-                <span>1 نواة (توفير طاقة)</span>
-                <span>المتاح على جهازك: {info?.hardware?.cpu_cores ?? 4} أنوية</span>
+                <span>1 core (power saving)</span>
+                <span>Available on this machine: {info?.hardware?.cpu_cores ?? 4} cores</span>
               </div>
             </div>
 
             {/* Performance Profile */}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-slate-200 block">نمط استهلاك الموارد (Performance Profile)</label>
+              <label className="text-sm font-medium text-slate-200 block">Performance profile</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div
                   onClick={() => handleSaveSettings({ performance_mode: "balanced" })}
@@ -607,14 +607,14 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-sm text-white flex items-center gap-2">
                       <span className="material-symbols-outlined text-cyan-400 text-base">balance</span>
-                      <span>متوازن (Balanced - موصى به)</span>
+                      <span>Balanced (recommended)</span>
                     </span>
                     {settings.performance_mode === "balanced" && (
                       <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    تدريب سريع وفعال مع ترك موارد كافية لنظام التشغيل والتطبيقات الأخرى للعمل بسلاسة.
+                    Trains quickly while leaving room for the rest of your system.
                   </p>
                 </div>
 
@@ -629,14 +629,14 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-sm text-white flex items-center gap-2">
                       <span className="material-symbols-outlined text-amber-400 text-base">bolt</span>
-                      <span>أقصى طاقة (Turbo Performance)</span>
+                      <span>Maximum performance</span>
                     </span>
                     {settings.performance_mode === "max" && (
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    استغلال أقصى قدرة معالجة لتسريع تدريب الموديلات الضخمة واستخراج تفسيرات SHAP المعقدة.
+                    Uses every available core for large models and SHAP explanations.
                   </p>
                 </div>
               </div>
@@ -645,15 +645,15 @@ export default function SettingsPage() {
             {/* Hardware specifications overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
               <div className="p-3.5 rounded-lg bg-slate-950/40 border border-white/5 space-y-1">
-                <span className="text-xs text-slate-400 font-mono">أنوية المعالج الإجمالية</span>
+                <span className="text-xs text-slate-400 font-mono">Total CPU cores</span>
                 <div className="text-lg font-bold text-white">{info?.hardware?.cpu_cores ?? "—"} Cores</div>
               </div>
               <div className="p-3.5 rounded-lg bg-slate-950/40 border border-white/5 space-y-1">
-                <span className="text-xs text-slate-400 font-mono">الذاكرة العشوائية الإجمالية</span>
+                <span className="text-xs text-slate-400 font-mono">Total memory</span>
                 <div className="text-lg font-bold text-white">{info?.hardware?.total_ram_gb ?? "—"} GB</div>
               </div>
               <div className="p-3.5 rounded-lg bg-slate-950/40 border border-white/5 space-y-1">
-                <span className="text-xs text-slate-400 font-mono">الذاكرة المتاحة للتدريب</span>
+                <span className="text-xs text-slate-400 font-mono">Memory available</span>
                 <div className="text-lg font-bold text-emerald-400">{info?.hardware?.available_ram_gb ?? "—"} GB</div>
               </div>
             </div>
@@ -668,10 +668,10 @@ export default function SettingsPage() {
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
                 <span className="material-symbols-outlined text-cyan-400">palette</span>
-                <span>سمة الواجهة وتجربة الاستخدام (Display Theme)</span>
+                <span>Display theme</span>
               </h2>
               <p className="text-xs text-slate-400">
-                اختر النمط البصري المناسب لبيئة العمل وتفضيلات الرؤية لديك.
+                Choose how AIDSE looks.
               </p>
             </div>
 
@@ -687,11 +687,11 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-sm text-white flex items-center gap-2">
                     <span className="material-symbols-outlined text-cyan-400 text-base">dark_mode</span>
-                    <span>الوضع الداكن (Dark • موصى به)</span>
+                    <span>Dark (recommended)</span>
                   </span>
                   {settings.theme === "dark" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
                 </div>
-                <p className="text-xs text-slate-400">النمط الأصلي المخصص لتقليل إجهاد العين أثناء تحليل البيانات الضخمة.</p>
+                <p className="text-xs text-slate-400">Easier on the eyes during long analysis sessions.</p>
               </div>
 
               <div
@@ -705,11 +705,11 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-sm text-white flex items-center gap-2">
                     <span className="material-symbols-outlined text-amber-400 text-base">light_mode</span>
-                    <span>الوضع الفاتح (Light)</span>
+                    <span>Light</span>
                   </span>
                   {settings.theme === "light" && <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />}
                 </div>
-                <p className="text-xs text-slate-400">خلفية فاتحة عالية الوضوح لبيئات العمل ذات الإضاءة المرتفعة.</p>
+                <p className="text-xs text-slate-400">High-contrast light background for bright rooms.</p>
               </div>
 
               <div
@@ -723,17 +723,17 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-sm text-white flex items-center gap-2">
                     <span className="material-symbols-outlined text-slate-400 text-base">settings_brightness</span>
-                    <span>تلقائي حسب نظام ويندوز</span>
+                    <span>Match Windows</span>
                   </span>
                   {settings.theme === "system" && <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />}
                 </div>
-                <p className="text-xs text-slate-400">التزامن التلقائي مع نمط مظهر نظام التشغيل Windows.</p>
+                <p className="text-xs text-slate-400">Follows your Windows light or dark setting.</p>
               </div>
             </div>
 
             {/* Desktop Startup Behavior */}
             <div className="pt-4 border-t border-white/10 space-y-4">
-              <h3 className="text-sm font-semibold text-white">سلوك التشغيل والإقلاع</h3>
+              <h3 className="text-sm font-semibold text-white">Startup</h3>
 
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -743,8 +743,8 @@ export default function SettingsPage() {
                   className="mt-1 rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-cyan-500"
                 />
                 <div>
-                  <span className="text-sm font-medium text-slate-200 block">بدء تشغيل التطبيق تلقائياً مع ويندوز</span>
-                  <span className="text-xs text-slate-400">تشغيل محرك AIDSE في الخلفية لسرعة فتح المشاريع فور بدء تشغيل الجهاز.</span>
+                  <span className="text-sm font-medium text-slate-200 block">Start AIDSE automatically with Windows</span>
+                  <span className="text-xs text-slate-400">Adds AIDSE to your Windows startup items so projects open faster.</span>
                 </div>
               </label>
             </div>
@@ -762,7 +762,7 @@ export default function SettingsPage() {
                   AI
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white">منصة AIDSE لعلوم البيانات والذكاء الاصطناعي</h2>
+                  <h2 className="text-lg font-bold text-white">AIDSE — AI Data Scientist & Evaluation Platform</h2>
                   <p className="text-xs text-slate-400 font-mono">
                     {info?.edition || "Standalone Desktop Edition"} • v{info?.app_version || "0.1.0"}
                   </p>
@@ -775,36 +775,36 @@ export default function SettingsPage() {
                 className="btn-ghost flex items-center gap-2 text-xs"
               >
                 <span className="material-symbols-outlined text-sm">refresh</span>
-                <span>تحديث الفحص</span>
+                <span>Refresh</span>
               </button>
             </div>
 
             {/* Diagnostics grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="glass-card rounded-xl p-4 space-y-2">
-                <span className="text-xs font-mono uppercase text-cyan-400 block font-semibold">بيئة التشغيل المحلية</span>
+                <span className="text-xs font-mono uppercase text-cyan-400 block font-semibold">Local environment</span>
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between py-1 border-b border-white/5">
-                    <span className="text-slate-400">نظام التشغيل:</span>
+                    <span className="text-slate-400">Operating system:</span>
                     <span className="text-white font-mono">{info?.environment?.os ?? "Windows"}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-white/5">
-                    <span className="text-slate-400">المعمارية:</span>
+                    <span className="text-slate-400">Architecture:</span>
                     <span className="text-white font-mono">{info?.environment?.arch ?? "x86_64"}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-white/5">
-                    <span className="text-slate-400">إصدار بايثون:</span>
+                    <span className="text-slate-400">Python version:</span>
                     <span className="text-white font-mono">{info?.environment?.python_version ?? "3.14"}</span>
                   </div>
                   <div className="flex justify-between py-1">
-                    <span className="text-slate-400">حالة الاتصال بالإنترنت:</span>
-                    <span className="text-emerald-400 font-mono">يعمل محلياً بالكامل (Offline Safe)</span>
+                    <span className="text-slate-400">Network:</span>
+                    <span className="text-emerald-400 font-mono">Fully offline</span>
                   </div>
                 </div>
               </div>
 
               <div className="glass-card rounded-xl p-4 space-y-2">
-                <span className="text-xs font-mono uppercase text-cyan-400 block font-semibold">مكتبات الذكاء الاصطناعي المدمجة</span>
+                <span className="text-xs font-mono uppercase text-cyan-400 block font-semibold">Bundled AI libraries</span>
                 <div className="space-y-1 text-xs">
                   {info?.ml_libraries ? (
                     Object.entries(info.ml_libraries).map(([name, ver]) => (
@@ -814,7 +814,7 @@ export default function SettingsPage() {
                       </div>
                     ))
                   ) : (
-                    <span className="text-slate-500">جاري تحميل الإصدارات...</span>
+                    <span className="text-slate-500">Loading versions...</span>
                   )}
                 </div>
               </div>

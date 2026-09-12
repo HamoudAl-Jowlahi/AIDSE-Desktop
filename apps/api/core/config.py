@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     # This is how the desktop build trains (there is no Redis). Turned off in the
     # test suite so dispatching an experiment does not fit real models.
     LOCAL_TRAINING_FALLBACK: bool = True
+    # Whether to hand training to Celery at all.
+    #
+    # Discovering "no broker" by attempting a connection is not free: Celery's
+    # redis result backend retries 20 times at one second each, so every
+    # experiment creation blocked the request — and therefore the UI — for
+    # more than twenty seconds on any machine without Redis, which is every
+    # desktop install. Decide from configuration instead of from a timeout.
+    USE_CELERY: bool = False
     # Brute-force protection on auth endpoints (Section 13.6)
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_AUTH: str = "5/minute"

@@ -2,6 +2,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch
+
+from apps.api.core.config import get_settings
 import uuid
 
 @pytest.mark.asyncio
@@ -10,6 +12,7 @@ async def test_create_and_list_experiments(
     logged_in_user: dict,
     auth_headers: dict,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     # 1. Create a Project
     proj_resp = await client.post(
@@ -38,6 +41,9 @@ async def test_create_and_list_experiments(
         "primary_metric": "rmse"
     }
 
+    # USE_CELERY defaults to false so desktop installs never probe for a broker;
+    # turn it on here because this test is specifically about the dispatch path.
+    monkeypatch.setattr(get_settings(), "USE_CELERY", True, raising=False)
     with patch("apps.api.modules.automl.router.run_automl_experiment.apply_async") as mock_dispatch:
         exp_resp = await client.post(
             f"/api/v1/projects/{project_id}/datasets/{dataset_id}/automl/experiments",
