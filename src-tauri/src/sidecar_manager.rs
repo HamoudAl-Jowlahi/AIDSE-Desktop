@@ -2,7 +2,8 @@ use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use std::process::{Command, Stdio};
+use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
 
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
@@ -58,18 +59,8 @@ impl SidecarManager {
         }
     }
 
-    /// Start the bundled backend and hand it the host, port and token.
-    ///
-    /// Launched by path rather than through Tauri's sidecar mechanism, because
-    /// externalBin copies a single file while PyInstaller produces a directory:
-    /// a 60 MB launcher stub plus a 790 MB _internal tree it loads its Python
-    /// DLL from. Shipping only the stub produced an executable that died with
-    /// "Failed to load Python DLL", so the sidecar configuration could never
-    /// have worked. The whole tree is bundled as a resource instead.
-    ///
-    /// std::process::Command keeps this on the Rust side, so the webview needs
-    /// no shell permission in order for the backend to start.
-    pub fn spawn(&self, app: &AppHandle) -> Result<(), String> {
+    /// Resolve the bundled backend executable inside the installed resources.
+    fn backend_path(app: &AppHandle) -> Result<PathBuf, String> {
         let backend = app
             .path()
             .resource_dir()
@@ -84,12 +75,26 @@ impl SidecarManager {
                 backend.display()
             ));
         }
+        Ok(backend)
+    }
 
+    /// Launch the backend once, returning the child handle.
+    ///
+    /// Started by path rather than through Tauri's sidecar mechanism, because
+    /// externalBin copies a single file while PyInstaller produces a directory:
+    /// a launcher stub plus a 790 MB _internal tree it loads its Python DLL
+    /// from. Shipping only the stub gave "Failed to load Python DLL", so the
+    /// sidecar configuration could never have worked. The whole tree ships as
+    /// a resource instead.
+    ///
+    /// std::process::Command keeps this on the Rust side, so the webview needs
+    /// no shell permission for the backend to start.
+    fn launch(&self, backend: &PathBuf) -> Result<Child, String> {
         let working_dir = backend
             .parent()
             .ok_or_else(|| "backend path has no parent directory".to_string())?;
 
-        let child = Command::new(&backend)
+        Command::new(backend)
             .args([
                 "--host",
                 &self.config.host,
@@ -98,19 +103,70 @@ impl SidecarManager {
                 "--token",
                 &self.config.token,
             ])
-            // The working directory must be the backend's own folder, so the
-            // launcher stub finds _internal sitting beside it.
+            // The working directory must be the backend's own folder so the
+            // launcher stub finds _internal beside it.
             .current_dir(working_dir)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|e| format!("could not start the AIDSE backend: {e}"))?;
+            .map_err(|e| format!("could not start the AIDSE backend: {e}"))
+    }
+
+    /// Start the backend and keep it running.
+    ///
+    /// The restart policy below was written, unit-tested, and then never
+    /// called: the manager tracked retries for a process nothing supervised.
+    /// If the backend died the window simply stopped working, with no restart
+    /// and nothing logged. This is the supervisor that was missing.
+    pub fn spawn(self: &Arc<Self>, app: &AppHandle) -> Result<(), String> {
+        let backend = Self::backend_path(app)?;
+        let child = self.launch(&backend)?;
 
         log::info!(
             "AIDSE backend started (pid {}) on port {}",
             child.id(),
             self.config.port
         );
+
+        let manager = Arc::clone(self);
+        std::thread::spawn(move || {
+            let mut child = child;
+            loop {
+                match child.wait() {
+                    Ok(status) if status.success() => {
+                        log::info!("AIDSE backend exited normally; not restarting.");
+                        return;
+                    }
+                    Ok(status) => log::error!("AIDSE backend exited with {status}"),
+                    Err(e) => {
+                        log::error!("lost track of the AIDSE backend: {e}");
+                        return;
+                    }
+                }
+
+                if !manager.should_restart() {
+                    log::error!(
+                        "AIDSE backend crashed repeatedly; giving up rather than \
+                         looping. Restart the application."
+                    );
+                    return;
+                }
+
+                // A backend that stays up past the reset window counts as
+                // healthy, so an isolated crash months later gets a full budget.
+                match manager.launch(&backend) {
+                    Ok(next) => {
+                        log::warn!("restarted the AIDSE backend (pid {})", next.id());
+                        child = next;
+                    }
+                    Err(e) => {
+                        log::error!("could not restart the AIDSE backend: {e}");
+                        return;
+                    }
+                }
+            }
+        });
+
         Ok(())
     }
 
