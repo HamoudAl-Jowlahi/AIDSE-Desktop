@@ -91,9 +91,11 @@ rather than papered over.
 
 ---
 
-## 3. Work completed (10 commits)
+## 3. Work completed (12 commits)
 
 ```
+a076702  Phase 3 (part 1): spawn the sidecar, and give it a real token and port
+3249246  Search every project, and add a handoff document
 7e02e8f  Reach the light theme, and delete a page that invented its own results
 492519a  Make the desktop UI work offline, and replace the decorative parts with real ones
 26fb9c5  Repair explainability, training resilience, and identifier leakage
@@ -205,7 +207,8 @@ separate false encryption claims corrected across UI, landing page and docs.
 ## 4. Current state
 
 ```
-Tests:      282 passed, 1 skipped, 0 failed   (~2–4 min)
+Tests:      283 passed, 1 skipped, 0 failed   (~2–4 min)
+Rust:       cargo check clean; cargo test 5 passed
 TypeScript: clean
 Build:      green, 20 routes
 Capabilities verified end-to-end: 16 / 16
@@ -221,21 +224,42 @@ regenerable build output still sitting in the tree (gitignored, not deleted).
 
 ## 5. Remaining work
 
-### Phase 3 — Wire up Tauri ← **next, and highest value**
+### Phase 3 — Wire up Tauri ← **IN PROGRESS** (commit `a076702`)
 
 Closes the **last critical security gap** and shrinks the installer from
 353 MB to ~15 MB. The chain is broken at every link:
 
-| # | Task | Current state |
+| # | Task | State |
 |---|---|---|
-| 1 | Add `@tauri-apps/api` to `apps/web` | **not a dependency at all** |
-| 2 | Spawn the sidecar from `main.rs` | zero `spawn`/`Command` calls |
-| 3 | Generate a random token, pass via `--token` | `let token = "".to_string()` |
-| 4 | Frontend calls `get_sidecar_config`, then `setApiBase` + `setInternalToken` | `setInternalToken()` exists, **nothing calls it** |
-| 5 | Random free port | hardcoded 8010; `find_free_loopback_port()` written but never called |
-| 6 | **Make the middleware fail CLOSED** | currently passes everything through when no token is set |
-| 7 | **Rebuild the sidecar binary** | `src-tauri/binaries/*.exe` is dated **4 Sep** — predates every fix in this audit |
-| 8 | Real minisign key (`tauri signer generate`) | updater config removed; key was 18/42 bytes |
+| 1 | Add `@tauri-apps/api` | ✅ done |
+| 2 | Spawn the sidecar from `main.rs` | ✅ `SidecarManager::spawn()` |
+| 3 | Random 256-bit token via `--token` | ✅ done |
+| 4 | Frontend handshake (`lib/sidecar.ts`) | ✅ awaited inside `request()` |
+| 5 | Random free port | ✅ `find_free_loopback_port()` in Rust |
+| 6 | Middleware enforcement | ✅ enforced **when a token is set** — see caveat below |
+| 7 | **Rebuild the sidecar binary** | ❌ **NOT DONE — do this before any bundle** |
+| 8 | Real minisign key | ❌ not done (updater config currently removed) |
+| 9 | **`npm run tauri build` end to end** | ❌ never attempted |
+
+**Caveat on #6, important:** enforcement is conditional on a token existing,
+and that is a hard limit, not laziness. A plain browser window cannot attach a
+custom header, so the **Edge launcher (`Launch-AIDSE.vbs`) — which is still
+what ships — cannot supply a token and cannot be protected this way.** Only the
+Tauri shell can. `warn_if_unprotected()` logs this at startup.
+So the security gap closes **only when the Tauri build replaces the launcher**
+(tasks 7 and 9).
+
+**`/health` is deliberately exempt** from token checks so the launcher's
+readiness poll keeps working.
+
+**Next concrete steps:**
+1. Rebuild the sidecar: `pyinstaller infrastructure/desktop/sidecar.spec`,
+   then copy the exe to `src-tauri/binaries/aidse-backend-x86_64-pc-windows-msvc.exe`
+2. `cd apps/web && npm run build` (Tauri serves `out/`)
+3. `npx tauri build` — **never run yet**; expect first-build issues
+4. Launch the bundled app and confirm: sidecar starts, handshake succeeds,
+   API calls carry the token, and a request **without** it gets 403
+5. `tauri signer generate` → restore the updater block with a real 42-byte key
 
 **⚠️ Item 6 is the actual security fix.** Right now `AIDSE_INTERNAL_TOKEN` is
 never set, so `InternalTokenMiddleware` admits every request — and desktop mode
@@ -248,7 +272,7 @@ one asserting rejection.
 ship a backend containing `DROP TABLE`, broken migrations, the confusion-matrix
 bug and the false encryption claims.
 
-Estimate: 4–5 days.
+Estimate for what remains: 2–3 days.
 
 ### Phase 5 — Dependencies & size (2–3 days)
 - `requirements.txt` has **no pinned versions** despite claiming "pinned for
