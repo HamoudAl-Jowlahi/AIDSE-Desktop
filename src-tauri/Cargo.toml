@@ -16,6 +16,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
 log = "0.4"
+# Cryptographically strong token shared only between this shell and the
+# sidecar it spawns.
+rand = "0.8"
 
 [features]
 default = ["custom-protocol"]

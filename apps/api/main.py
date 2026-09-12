@@ -159,7 +159,8 @@ def create_app() -> FastAPI:
     )
 
     # ── Internal Session Token Middleware (Phase 3) ───────────────────────────
-    from apps.api.core.token_middleware import InternalTokenMiddleware
+    from apps.api.core.token_middleware import InternalTokenMiddleware, warn_if_unprotected
+    warn_if_unprotected()
     app.add_middleware(InternalTokenMiddleware)
 
     # ── Hardened Security Headers ─────────────────────────────────────────────

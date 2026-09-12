@@ -101,8 +101,6 @@ def test_sidecar_spec_data_paths_exist():
 # the point is that widening the shell's authority is a deliberate act.
 APPROVED_PERMISSIONS = {
     "core:default",
-    "shell:allow-execute",
-    "shell:allow-sidecar",
     "process:allow-restart",
     "process:allow-exit",
 }
@@ -134,6 +132,12 @@ def test_no_filesystem_or_wildcard_permissions():
             continue
         assert "*" not in perm, f"wildcard permission {perm!r}"
         assert not perm.startswith("fs:"), f"filesystem permission {perm!r} grants disk access"
+        # The sidecar is launched from Rust during setup, so the page never
+        # needs to run a command. shell:allow-execute used to be granted here
+        # for no reason the frontend could justify.
+        assert not perm.startswith("shell:"), (
+            f"shell permission {perm!r} lets the web page run commands"
+        )
 
 
 # ── Offline operation ──────────────────────────────────────────────────────

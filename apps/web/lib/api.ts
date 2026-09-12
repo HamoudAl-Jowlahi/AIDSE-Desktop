@@ -213,6 +213,15 @@ async function request<T>(
   options: RequestInit = {},
   retry = true
 ): Promise<T> {
+  // Ask the Tauri shell for the backend port and session token before the
+  // first call. connectToSidecar() caches, so this costs one await after that,
+  // and it is a no-op outside Tauri. Imported dynamically to keep api.ts and
+  // sidecar.ts from forming an import cycle.
+  if (typeof window !== "undefined") {
+    const { connectToSidecar } = await import("./sidecar");
+    await connectToSidecar();
+  }
+
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };

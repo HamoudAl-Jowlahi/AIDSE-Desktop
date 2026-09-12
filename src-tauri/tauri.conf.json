@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],
+    "licenseFile": "LICENSE.txt",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,7 +38,6 @@
     ],
     "windows": {
       "nsis": {
-        "license": "LICENSE.txt",
         "installerIcon": "icons/icon.ico",
         "installMode": "currentUser"
       }

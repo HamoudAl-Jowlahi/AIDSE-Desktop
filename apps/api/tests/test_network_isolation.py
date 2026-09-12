@@ -94,6 +94,11 @@ def test_loopback_origin_is_granted(client_without_token):
 
 TOKEN = "secret_internal_session_token_12345"
 
+# /health is deliberately exempt: the launcher polls it to know when the backend
+# is up and a plain browser cannot attach a custom header. Enforcement is
+# checked against a real API route instead.
+PROTECTED_PATH = "/api/v1/projects"
+
 
 @pytest.fixture
 def client_with_token(monkeypatch) -> TestClient:
@@ -102,32 +107,31 @@ def client_with_token(monkeypatch) -> TestClient:
 
 
 def test_request_without_token_is_refused(client_with_token):
-    resp = client_with_token.get("/health")
+    resp = client_with_token.get(PROTECTED_PATH)
     assert resp.status_code == 403
     assert resp.json()["error"]["code"] == "FORBIDDEN"
 
 
 def test_request_with_wrong_token_is_refused(client_with_token):
-    resp = client_with_token.get("/health", headers={"X-AIDSE-Internal-Token": "wrong"})
+    resp = client_with_token.get(PROTECTED_PATH, headers={"X-AIDSE-Internal-Token": "wrong"})
     assert resp.status_code == 403
 
 
 def test_token_comparison_is_not_a_prefix_match(client_with_token):
     """A truncated or extended token must not be accepted."""
     for candidate in (TOKEN[:-1], TOKEN + "x", TOKEN.upper()):
-        resp = client_with_token.get("/health", headers={"X-AIDSE-Internal-Token": candidate})
+        resp = client_with_token.get(PROTECTED_PATH, headers={"X-AIDSE-Internal-Token": candidate})
         assert resp.status_code == 403, f"{candidate!r} was accepted"
 
 
 def test_correct_token_passes(client_with_token):
-    resp = client_with_token.get("/health", headers={"X-AIDSE-Internal-Token": TOKEN})
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "ok"
+    resp = client_with_token.get(PROTECTED_PATH, headers={"X-AIDSE-Internal-Token": TOKEN})
+    assert resp.status_code != 403, "a valid token must not be rejected"
 
 
 def test_bearer_header_is_accepted_as_a_fallback(client_with_token):
-    resp = client_with_token.get("/health", headers={"Authorization": f"Bearer {TOKEN}"})
-    assert resp.status_code == 200
+    resp = client_with_token.get(PROTECTED_PATH, headers={"Authorization": f"Bearer {TOKEN}"})
+    assert resp.status_code != 403
 
 
 def test_preflight_is_allowed_through(client_with_token):
@@ -140,6 +144,11 @@ def test_preflight_is_allowed_through(client_with_token):
         },
     )
     assert resp.status_code < 400
+
+
+def test_health_stays_reachable_without_a_token(client_with_token):
+    """The launcher's readiness probe must not need a header it cannot send."""
+    assert client_with_token.get("/health").status_code == 200
 
 
 def test_unconfigured_token_currently_fails_open(client_without_token):
