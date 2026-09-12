@@ -71,3 +71,6 @@ pip_install.log
 *.swo
 .DS_Store
 Thumbs.db
+
+# Root Tauri CLI manifest installs here
+/node_modules/
