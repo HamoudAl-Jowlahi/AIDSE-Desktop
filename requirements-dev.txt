@@ -1,0 +1,16 @@
+# ============================================================
+# AIDSE — Development and test dependencies
+#
+# Kept out of requirements.txt so the release build installs only what
+# the application actually runs on.
+#
+#   pip install -r requirements.txt -r requirements-dev.txt
+# ============================================================
+
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+ruff==0.16.6
+black==26.5.1
+# Builds the sidecar bundle (infrastructure/desktop/sidecar.spec).
+pyinstaller==6.22.2
