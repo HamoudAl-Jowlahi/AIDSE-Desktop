@@ -61,7 +61,7 @@ jobs:
 
       # Rust is the slow half of a cold build: ~350 MB of crates and a full
       # release compile. Keyed on Cargo.lock so a dependency bump busts it.
-      - uses: swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 

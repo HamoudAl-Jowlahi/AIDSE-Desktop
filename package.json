@@ -1,6 +1,6 @@
 {
   "name": "aidse-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "AIDSE Desktop shell. The frontend lives in apps/web and the backend in apps/api; this manifest exists only to host the Tauri CLI, which expects to run from the directory containing src-tauri/.",
   "scripts": {
