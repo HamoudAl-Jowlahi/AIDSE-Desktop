@@ -108,6 +108,25 @@ Releases and the update mechanism: [`docs/releasing.md`](docs/releasing.md).
 
 ---
 
+## The two branches, and Vercel
+
+The repository holds two unrelated things.
+
+`main` is the download site — `index.html`, `logo.png`, a README. Vercel
+builds it and serves it at **aidse-desktop.vercel.app**, and its download
+button points at this repository's `/releases/latest`. Editing the page means
+committing to `main`; `landing-page/` on this branch is a mirror kept in step,
+not the deployed copy.
+
+`master` is the application, and it is not a website. Vercel watches every
+branch, so pushing here made it run the root `npm run build` — which is
+`tauri build`, needing Rust and a PyInstaller backend that no Vercel builder
+has. It failed with exit 2 on every push. `vercel.json` in this branch sets
+`ignoreCommand` to `exit 0`, which tells Vercel to skip the build entirely.
+Delete that file and the failing deployments come back.
+
+GitHub Pages is not involved; it returns 404 for this repository.
+
 ## Layout
 
 ```
