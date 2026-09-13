@@ -108,8 +108,8 @@ def main(args_list: list[str] | None = None) -> None:
                 "different one."
             )
     else:
-        # No explicit port: pick one, starting from the historical default that
-        # Launch-AIDSE reads back out of port.txt.
+        # No explicit port: pick one, starting from the historical default.
+        # The shell always passes --port, so this is the by-hand path.
         target_port = int(os.getenv("APP_PORT", "8010"))
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             try:
@@ -121,8 +121,21 @@ def main(args_list: list[str] | None = None) -> None:
     os.environ["APP_HOST"] = args.host
     os.environ["APP_PORT"] = str(target_port)
     os.environ["AIDSE_DESKTOP_MODE"] = "1"
-    if args.token:
-        os.environ["AIDSE_INTERNAL_TOKEN"] = args.token
+
+    # A token is required here, not merely honoured. This entry point is what
+    # ships: the Tauri shell always passes --token, and without one the API
+    # answers any process running as this user. It used to be optional because
+    # the Edge launcher could not attach a custom header to a browser request;
+    # that launcher is gone, so the compromise it forced can go with it.
+    if not args.token:
+        raise SystemExit(
+            "Refusing to start without an internal session token. The backend "
+            "listens on loopback, which every process running as this user can "
+            "reach, so the token is the only thing separating the app's own "
+            "window from anything else on the machine. "
+            "Pass --token, or set AIDSE_INTERNAL_TOKEN."
+        )
+    os.environ["AIDSE_INTERNAL_TOKEN"] = args.token
 
     local_app_data = os.getenv("LOCALAPPDATA") or os.path.expanduser("~")
     aidse_dir = os.path.join(local_app_data, "AIDSE-Desktop")

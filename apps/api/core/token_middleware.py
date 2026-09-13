@@ -7,18 +7,15 @@ else on this machine": the Tauri shell generates 256 bits at launch, passes them
 to the sidecar over argv, and hands them to its own window through the
 get_sidecar_config command. Nothing else ever sees the value.
 
-Two things are worth being explicit about:
+Enforcement is conditional on a token being configured, which is what lets the
+test suite and a developer running the API directly work at all. That is not a
+hole in the shipped app: sidecar_entry.py — the only entry point that ships —
+refuses to start without one.
 
-1. Enforcement is conditional on a token being configured. That is not a
-   loophole left open for convenience — it is what lets the test suite and a
-   developer running the backend directly work at all.
-
-2. The Edge-based launcher (Launch-AIDSE.vbs) cannot use this. A plain browser
-   window cannot be told to attach a custom header to its requests, so that
-   path runs without a token and therefore without this protection. Only the
-   Tauri shell can supply one. Until the Tauri build replaces the launcher,
-   an installed copy started through the .vbs is reachable by any local
-   process — hence the warning logged at startup.
+It used to be a hole. The Edge-based launcher opened a plain browser window,
+which cannot be told to attach a custom header, so an installed copy started
+that way ran with no token and was reachable by any local process. The launcher
+has been removed in favour of the Tauri shell, which always supplies one.
 """
 from __future__ import annotations
 
@@ -32,9 +29,9 @@ from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger("aidse.security")
 
-# Reachable without a token. The launcher polls /health to know when the
-# backend is up and cannot send headers; it reveals only that the app is
-# running, which the open port already does.
+# Reachable without a token. It reveals only that the app is running, which an
+# open port already does, and the shell needs a way to wait for readiness
+# before the window makes its first real request.
 _UNPROTECTED_PATHS = frozenset({"/health"})
 
 
@@ -46,8 +43,8 @@ def warn_if_unprotected() -> None:
         return
     logger.warning(
         "No AIDSE_INTERNAL_TOKEN is set, so the local API accepts requests from "
-        "any process running as this user. The Tauri shell supplies one; the "
-        "Edge launcher cannot."
+        "any process running as this user. sidecar_entry.py refuses to start in "
+        "this state, so reaching here means the app was started some other way."
     )
 
 
@@ -57,8 +54,8 @@ class InternalTokenMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         expected_token = os.getenv("AIDSE_INTERNAL_TOKEN", "")
 
-        # Unconfigured: dev, tests, and the Edge launcher. warn_if_unprotected()
-        # has already said so at startup.
+        # Unconfigured: dev and tests only — sidecar_entry.py will not start
+        # without one. warn_if_unprotected() has already said so at startup.
         if not expected_token:
             return await call_next(request)
 

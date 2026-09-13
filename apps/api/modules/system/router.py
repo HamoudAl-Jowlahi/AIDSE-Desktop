@@ -6,6 +6,7 @@ and desktop application preferences for offline local use.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import shutil
@@ -21,6 +22,8 @@ from pydantic import BaseModel, Field
 from apps.api.core.dependencies import get_current_user
 from apps.api.core.storage import get_aidse_data_dir, get_storage_root
 from apps.api.modules.auth.schemas import UserOut
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/system", tags=["System Diagnostics & Settings"])
 
@@ -168,6 +171,37 @@ async def get_system_info(current_user: UserOut = Depends(get_current_user)) -> 
     }
 
 
+# The Tauri shell, by the names it can be installed under. The backend must
+# never be registered here: started on its own it has no window, no token and
+# no supervisor, so "launch on startup" would hand the user a headless 390 MB
+# process every time they log in. That is what this did once Launch-AIDSE.vbs
+# was removed and the fallback silently pointed at sys.executable.
+_SHELL_EXECUTABLES = ("AIDSE Platform.exe", "aidse-desktop.exe")
+
+
+def _find_shell_executable() -> Path | None:
+    """
+    Locate the desktop shell from inside the backend it started.
+
+    Installed, the tree is <install>/AIDSE Platform.exe beside
+    <install>/backend/aidse-backend.exe, so the shell is one level up from the
+    backend's own directory.
+    """
+    here = Path(sys.executable).resolve()
+    roots = [here.parent, *here.parents[:3]]
+
+    program_files = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "AIDSE Platform"
+    if program_files.name:
+        roots.append(program_files)
+
+    for root in roots:
+        for name in _SHELL_EXECUTABLES:
+            candidate = root / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
 def _set_startup_registry(enable: bool) -> None:
     if sys.platform != "win32":
         return
@@ -177,34 +211,27 @@ def _set_startup_registry(enable: bool) -> None:
         app_name = "AIDSE-Desktop"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
             if enable:
-                exe_resolved = Path(sys.executable).resolve()
-                candidates = [
-                    exe_resolved.parents[2] / "Launch-AIDSE.vbs",
-                    exe_resolved.parents[1] / "Launch-AIDSE.vbs",
-                    exe_resolved.parent / "Launch-AIDSE.vbs",
-                    Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "AIDSE Desktop" / "Launch-AIDSE.vbs",
-                ]
-                launcher_vbs = None
-                for cand in candidates:
-                    if cand.is_file():
-                        launcher_vbs = cand
-                        break
-
-                wscript_exe = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "wscript.exe"
-                wscript_str = f'"{wscript_exe}"' if wscript_exe.is_file() else "wscript.exe"
-
-                if launcher_vbs:
-                    cmd = f'{wscript_str} "{launcher_vbs}"'
-                else:
-                    cmd = f'"{exe_resolved}"'
-                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, cmd)
+                shell = _find_shell_executable()
+                if shell is None:
+                    # Better to leave the setting off than to register something
+                    # that starts a backend nobody can see or talk to.
+                    logger.warning(
+                        "Could not find the AIDSE shell executable next to %s; "
+                        "not registering a startup entry.", sys.executable,
+                    )
+                    try:
+                        winreg.DeleteValue(key, app_name)
+                    except FileNotFoundError:
+                        pass
+                    return
+                winreg.SetValueEx(key, app_name, 0, winreg.REG_SZ, f'"{shell}"')
             else:
                 try:
                     winreg.DeleteValue(key, app_name)
                 except FileNotFoundError:
                     pass
     except Exception:
-        pass
+        logger.exception("Could not update the launch-on-startup registry entry.")
 
 
 @router.get("/settings", summary="Get desktop configuration settings")
