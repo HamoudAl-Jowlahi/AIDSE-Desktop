@@ -51,7 +51,7 @@
       "endpoints": [
         "https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest/download/latest.json"
       ],
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVGNzREQ0E5Qjc0NTMzMDQKUldRRU0wVzNxZHgwWHhRQ1FYdzNxSUxZTkNVWmRvY1hKeC9DcUVnaU5QWGFTUWR2QWNaYjF4L1MK",
       "windows": {
         "installMode": "passive"
       }
