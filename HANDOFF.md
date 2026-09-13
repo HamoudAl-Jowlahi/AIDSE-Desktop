@@ -207,7 +207,7 @@ separate false encryption claims corrected across UI, landing page and docs.
 ## 4. Current state
 
 ```
-Tests:      288 passed, 1 skipped, 0 failed   (apps/api, ~2 min)
+Tests:      298 passed, 0 skipped, 0 failed   (apps/api, ~2 min)
 Rust:       cargo check clean; cargo test 8 passed
 TypeScript: clean
 Build:      green, 20 routes
@@ -365,79 +365,88 @@ Training now has one route: in-process.
 submodules in the bundle and 113 MB of `mlruns/` on disk, for 12 calls whose
 only user-visible output is an un-clickable run id in the experiments table.
 
-Still open in Phase 5/6: pin dependency versions, delete `dist/`,
-`dist-installer/`, `landing-page.rar`, `mlruns/` (~1.7 GB), remove the six
-empty modules and `create_all` from the lifespan, rewrite
-`AIDSE_COMPLETE_PROJECT_DOCS.md`, and decide the fate of
-`infrastructure/docker/` and `infrastructure/kubernetes/` — they describe the
-server deployment and now reference the deleted worker.
+Phases 5 and 6 are done. What changed:
 
----
+**Phase 5 — dependencies.** Everything is pinned with `==` at the versions the
+suite passes on, in `requirements.txt` (runtime) and `requirements-dev.txt`
+(tools, including a pinned PyInstaller). The release workflow installs only the
+runtime file. Ranges were dangerous here specifically: the app ships as a
+PyInstaller bundle compiled from whatever they resolved to, so a release could
+have been built against versions nobody ran. `httpx` moved to runtime — four
+production modules import it, despite the comment calling it test-only.
 
-**Correct the size expectation.** Earlier notes claimed Tauri would take the
-installer from 353 MB to ~15 MB. That is wrong. Tauri swaps a ~150 MB Electron
-shell for a ~10 MB one, but the Python + ML runtime is 848 MB regardless, so
-the installer stays near 350 MB. What Tauri actually buys: the internal token
-(the last critical security gap), no dependency on an installed Edge, lower
-memory, and a native window.
+**Phase 6 — cleanup.** Deleted: `installer.iss` and `Launch-AIDSE.bat/.vbs`
+(the Edge-launcher build), `infrastructure/docker/` (PostgreSQL + Redis +
+MinIO + Celery worker), `infrastructure/github-actions/ci.yml` (outside
+`.github/workflows`, so GitHub never ran it), `packages/ml-core/` (six empty
+files), the `comparison`, `deployment` and `monitoring` api modules (one empty
+`__init__.py` each), `uv.lock` (listed no dependencies), `README_DESKTOP.md`,
+and 549 MB of stale build output.
 
-**Remaining, in order:**
-1. Finish `npx tauri build` (drop `--no-bundle` for the installer)
-2. Launch the bundled app; confirm the backend starts, the handshake succeeds,
-   and API calls carry the token
-3. `npx tauri signer generate` → restore the updater block with a 42-byte key
-4. Decide the fate of `Launch-AIDSE.vbs`: it cannot send a header, so it
-   cannot be protected. Once the Tauri bundle works, retire it.
+`create_all` is out of the lifespan. Verified against a fresh database in a
+temp directory: migrations alone produce 19 tables stamped at `2107bfe05bb2`.
 
-### Phase 5 — Dependencies & size (2–3 days)
-- `requirements.txt` has **no pinned versions** despite claiming "pinned for
-  reproducibility" — all `>=`
-- Remove server-era deps: `minio`, `celery`, `redis`, `asyncpg`, `passlib`
-- Evaluate dropping `mlflow` (large, and only artifact tracking is used)
-- PyInstaller `excludes`
+`README.md` and `AIDSE_COMPLETE_PROJECT_DOCS.md` are rewritten. The first told
+readers to install Docker Desktop; the second claimed Celery support, a forced
+dark theme, 208 tests and a 10-15 MB installer. `.env.example` defaulted
+`APP_HOST` to `0.0.0.0`, contradicting the loopback-only default in config.
 
-### Phase 6 — Organisation & cleanup (2 days)
-- Remove `dist/` (1.3 GB), `dist-installer/` (353 MB), `landing-page.rar`, `mlruns/` — **frees ~1.7 GB**
-- Delete 6 empty modules: `deployment`, `monitoring`, `comparison`,
-  `services/serving`, `packages/ml-core`, `packages/shared-types`
-- Delete unused `infrastructure/` (docker, github-actions, empty k8s dirs)
-- Remove `create_all` from `lifespan` — it masks migration failures, which is
-  exactly how the original drift went unnoticed
-- Rewrite `AIDSE_COMPLETE_PROJECT_DOCS.md` (still claims 208 tests, SQLCipher, etc.)
+The four tests that parsed `installer.iss` were replaced rather than dropped.
+They guarded something real — that the shipped artifact carries `alembic.ini`
+and the migrations, and no keys or databases — so the same assertions now read
+`sidecar.spec`, plus one that reads the built bundle when present.
 
-### Known smaller items
-- `refresh_token` stored in a JS-readable cookie (dormant — desktop bypasses login)
-- ReDoS: user regex has no execution timeout (mitigated by a length cap + off-loop)
-- 76 eslint warnings
-- Arabic language layer planned — settings was translated to English first so
-  i18n can be added properly rather than as scattered strings
+### Deleting the launcher closed a hole and opened a bug
 
----
+Both fixed in `bbe9e70`.
 
-## 6. Conventions used here
+**The hole:** token enforcement was conditional because the `.vbs` opened a
+plain browser window, which cannot attach a custom header. An installed copy
+started that way ran unprotected and all the code could do was warn.
+`sidecar_entry.py` now refuses to start without a token. Dev and tests still
+run unprotected — that is why the middleware stays conditional — but the
+shipped path cannot end up in that state.
 
-- **Verify by running, not by reading.** Every claim in the commits was executed.
-- **Mutation-test new tests.** Break the protection, confirm the test fails,
-  revert. If it cannot be reproduced, say so in the test docstring — one test
-  was *deleted* for reproducing nothing.
-- **Never edit source while a test run is in flight** (it caused a false failure).
-- **Don't overclaim in UI copy.** The lock screen states plainly that it does not
-  encrypt datasets.
-- Commit messages explain *why*, including what was wrong before.
+**The bug:** `_set_startup_registry` looked for the `.vbs` and fell back to
+`sys.executable`, which inside the bundle is `aidse-backend.exe`. Once the
+`.vbs` was gone, enabling "launch on startup" would have written the *backend*
+into the Run key: a headless 390 MB process at every login, no window, no
+token. It now resolves the shell, and removes the entry if it cannot find one.
 
----
+### Deliberately left alone
 
-## 7. Honest notes / open risks
+- **`dist/` (848 MB)** — the built backend. Deleting it frees the most space
+  but forces a ~20 minute PyInstaller run before the next bundle can be built.
+  It is gitignored build output; delete it whenever the space is worth more.
+- **`mlruns/` (113 MB)** — eight AutoML runs with real model artifacts.
+  Deleting it right after deciding to keep mlflow seemed contradictory, and it
+  is data rather than build output. Say the word and it goes.
 
-- **Project-delete cascade** is verified by hand against a real file-backed
-  database, but the regression test asserts only the *outcome*. The original
-  fault could not be reproduced against the in-memory test database — restored
-  to the exact broken configuration, the test still passed. Treat a regression
-  there as possible even with a green suite.
-- **Rust unit tests** in `sidecar_manager.rs` were verified in isolation (copied
-  into a scratch crate) because the full crate needs Tauri deps compiled. Run
-  `cargo test` inside `src-tauri/` once Phase 3 builds.
-- **`aidse-platform`** (the sibling web project) is untouched and still has no
-  git repository — deliberately out of scope.
-- Stale `__pycache__` carried over from `aidse-platform` made tracebacks point
-  at the wrong repository; cleared, but re-check if paths look wrong again.
+Disk: 27 GB free.
+
+### The sidecar bundle is now stale
+
+`dist/aidse-backend` predates the `create_all` removal, the token requirement
+and the startup-registry fix, because those live in `apps/api` and only reach
+the bundle through PyInstaller. Rebuild before cutting a release:
+
+```bash
+.venv/Scripts/pyinstaller infrastructure/desktop/sidecar.spec --distpath dist --noconfirm
+npm run build
+```
+
+The release workflow does this from scratch, so a tagged release is unaffected.
+
+### Uncommitted, and not mine
+
+`package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` are
+bumped 0.1.0 -> 0.2.0 in the working tree. That is step 1 of
+`docs/releasing.md` and is left unstaged for the owner to commit and tag.
+
+### Remaining known issues
+
+- The refresh token sits in a cookie readable by JavaScript.
+- 76 eslint warnings in the frontend, mostly `any` and unused bindings.
+- ReDoS timeout on user-supplied regex in the evaluation scorer.
+- Nothing has been pushed: the branch is `master`, the repository's default is
+  `main`.
