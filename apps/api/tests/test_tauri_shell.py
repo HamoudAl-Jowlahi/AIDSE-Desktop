@@ -265,6 +265,87 @@ def test_the_private_signing_key_is_not_in_the_repository():
     assert not leaked, f"minisign private key committed: {leaked}"
 
 
+def _rust_backend_path_parts() -> list[str]:
+    """
+    The path segments sidecar_manager.rs appends to resource_dir().
+
+    Read out of the `let backend = ...;` statement rather than by matching the
+    whole expression: it contains a map_err with its own nested parentheses,
+    which a single regex over the chain gets wrong.
+    """
+    source = (TAURI / "src" / "sidecar_manager.rs").read_text(encoding="utf-8")
+
+    start = source.find("fn backend_path")
+    assert start != -1, "sidecar_manager.rs no longer defines backend_path"
+
+    let_start = source.index("let backend", start)
+    statement = source[let_start : source.index(";", let_start)]
+    assert "resource_dir()" in statement, (
+        "backend_path no longer resolves from resource_dir(); this test assumes it does"
+    )
+
+    parts = re.findall(r'\.join\("([^"]+)"\)', statement)
+    assert parts, "the backend path is built without any join()"
+    return parts
+
+
+def test_rust_looks_for_the_backend_where_the_bundler_puts_it():
+    """
+    The shell resolves the backend as resource_dir() plus a join chain. That
+    chain has to agree with what bundle.resources lays down, and nothing
+    connected the two — so the first bundle shipped with Rust looking in
+    backend/aidse-backend/aidse-backend.exe while the bundler wrote
+    backend/aidse-backend.exe. The app installs fine and then refuses to
+    start, which reads like every feature broke at once.
+
+    A directory source mapped to a trailing-slash target copies the
+    directory's *contents*, so "../dist/aidse-backend" -> "backend/" puts the
+    launcher stub directly in backend/, beside the _internal tree it loads its
+    Python DLL from.
+    """
+    parts = _rust_backend_path_parts()
+
+    resources = _tauri_conf().get("bundle", {}).get("resources", {})
+    target = next((dest for src, dest in resources.items() if "aidse-backend" in src), None)
+    assert target, f"no backend entry among bundle.resources: {resources}"
+
+    if target.endswith("/"):
+        expected = [target.rstrip("/"), "aidse-backend.exe"]
+    else:
+        # Without a trailing slash the source directory keeps its own name.
+        expected = [target, "aidse-backend", "aidse-backend.exe"]
+
+    assert parts == expected, (
+        f"sidecar_manager.rs looks in {'/'.join(parts)}, but bundle.resources maps "
+        f"{target!r}, so the backend installs at {'/'.join(expected)}. "
+        "The window would open with no backend behind it."
+    )
+
+
+def test_the_staged_bundle_really_holds_the_backend_there():
+    """
+    The check above compares two files to each other. This one checks the real
+    build output, so a change in how Tauri maps resources is caught too.
+    Skipped until a release build exists.
+    """
+    release = TAURI / "target" / "release"
+    if not (release / "backend").is_dir():
+        pytest.skip("no release build in this checkout")
+
+    # resource_dir() is the executable's own directory for a release build.
+    resolved = release
+    for part in _rust_backend_path_parts():
+        resolved = resolved / part
+
+    assert resolved.is_file(), (
+        f"the shell would look for the backend at {resolved}, which the build did not produce"
+    )
+    assert (resolved.parent / "_internal").is_dir(), (
+        f"{resolved.name} has no _internal tree beside it; the launcher stub loads its "
+        "Python DLL from there and would fail with 'Failed to load Python DLL'"
+    )
+
+
 # ── Rust-side coverage ─────────────────────────────────────────────────────
 
 

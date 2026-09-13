@@ -60,13 +60,19 @@ impl SidecarManager {
     }
 
     /// Resolve the bundled backend executable inside the installed resources.
+    ///
+    /// The path has to match what the bundler lays down. tauri.conf.json maps
+    /// `"../dist/aidse-backend": "backend/"`, and a directory source with a
+    /// trailing-slash target copies the directory's *contents*, so the tree
+    /// installs as `backend/aidse-backend.exe` beside `backend/_internal` —
+    /// not `backend/aidse-backend/aidse-backend.exe`. Getting this wrong is
+    /// invisible until launch, where it reads as "every feature is broken".
     fn backend_path(app: &AppHandle) -> Result<PathBuf, String> {
         let backend = app
             .path()
             .resource_dir()
             .map_err(|e| format!("could not locate the app resources: {e}"))?
             .join("backend")
-            .join("aidse-backend")
             .join("aidse-backend.exe");
 
         if !backend.is_file() {
