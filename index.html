@@ -161,7 +161,7 @@
           <span id="langLabel">English</span>
         </button>
 
-        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest" class="btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-2">
+        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.2.0/AIDSE.Platform_0.2.0_x64-setup.exe" download data-download class="btn-primary rounded-xl px-4 py-2 text-sm font-bold flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
@@ -190,7 +190,7 @@
             منصة علوم بيانات وتقييم نماذج تعمل محليًا على جهازك — من تجهيز البيانات، إلى AutoML وOptuna وSHAP، بدون أن تغادر بياناتك جهازك.
           </p>
           <div class="mt-9 flex flex-wrap justify-end-adaptive gap-3 reveal">
-            <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest" class="btn-primary rounded-xl px-6 py-3 font-bold flex items-center gap-2">
+            <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.2.0/AIDSE.Platform_0.2.0_x64-setup.exe" download data-download class="btn-primary rounded-xl px-6 py-3 font-bold flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
@@ -416,7 +416,7 @@
         <div class="section-kicker justify-center">AIDSE / DESKTOP DATA SCIENCE</div>
         <h2 class="text-4xl sm:text-6xl md:text-[8rem] leading-[.88] tracking-[-.07em] font-black mt-6">DATA<br><span class="accent">INTELLIGENCE.</span></h2>
         <p class="mt-8 text-white/40 text-lg" data-i18n="cta_sub">Without the Cloud.</p>
-        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest" class="btn-primary inline-flex items-center gap-2 rounded-xl px-8 py-4 mt-8 font-bold text-base shadow-2xl shadow-white/10">
+        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.2.0/AIDSE.Platform_0.2.0_x64-setup.exe" download data-download class="btn-primary inline-flex items-center gap-2 rounded-xl px-8 py-4 mt-8 font-bold text-base shadow-2xl shadow-white/10">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
@@ -745,6 +745,35 @@
         ease: 'none'
       });
     }
+  </script>
+
+  <script>
+    // The download buttons carry a direct link to a specific installer, so a
+    // click downloads rather than opening a page. That href names one version,
+    // which would go stale on the next release, so this asks GitHub which
+    // release is newest and rewrites them.
+    //
+    // Deliberately not /releases/latest: that is a page, not a file, and it
+    // costs the visitor an extra click. Deliberately not a fixed filename
+    // either: the bundler puts the version in the name.
+    //
+    // If the request fails — offline, rate limited, blocked — the buttons keep
+    // the href already in the markup and still download something that works.
+    (function () {
+      var api = 'https://api.github.com/repos/HamoudAl-Jowlahi/AIDSE-Desktop/releases/latest';
+      fetch(api, { headers: { Accept: 'application/vnd.github+json' } })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (release) {
+          var asset = (release.assets || []).filter(function (a) {
+            return /-setup\.exe$/i.test(a.name);
+          })[0];
+          if (!asset || !asset.browser_download_url) return;
+          document.querySelectorAll('[data-download]').forEach(function (el) {
+            el.href = asset.browser_download_url;
+          });
+        })
+        .catch(function () { /* keep the href in the markup */ });
+    })();
   </script>
 </body>
 </html>
