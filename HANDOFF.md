@@ -212,7 +212,7 @@ Rust:       cargo check clean (updater plugin compiles); cargo test 5 passed
 TypeScript: clean
 Build:      green, 20 routes
 Capabilities verified end-to-end: 16 / 16
-Installer:  NSIS, 235.6 MB — built once, now STALE (predates a293b3a)
+Installer:  NSIS, 235.6 MB — built once, now STALE (predates the updater)
 ```
 
 Toolchain installed this session: **Rust 1.98.1** + **MSVC 14.44** + **Windows
@@ -318,8 +318,10 @@ pushed yet; the branch is `master` while the repo's main branch is `main`.
 fetching `wix314-binaries.zip`, and MSI only matters for group-policy
 deployment, which a per-user desktop app does not use.
 
-**Then:** rebuild the bundle (the 235.6 MB one predates the supervision fix
-`a293b3a`), launch it, and confirm the handshake — item 11.
+**Then:** rebuild the bundle and confirm the handshake — item 11. The
+235.6 MB installer is stale because it predates the updater, not because it
+predates the supervision fix: `a293b3a` landed 08:28 and the bundle was written
+08:40, so supervision was already in it.
 
 ---
 
