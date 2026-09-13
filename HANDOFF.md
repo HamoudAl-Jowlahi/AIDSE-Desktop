@@ -207,12 +207,12 @@ separate false encryption claims corrected across UI, landing page and docs.
 ## 4. Current state
 
 ```
-Tests:      82 passed, 1 skipped, 0 failed    (apps/api/tests, ~30 s)
-Rust:       cargo check clean (updater plugin compiles); cargo test 5 passed
+Tests:      288 passed, 1 skipped, 0 failed   (apps/api, ~2 min)
+Rust:       cargo check clean; cargo test 8 passed
 TypeScript: clean
 Build:      green, 20 routes
 Capabilities verified end-to-end: 16 / 16
-Installer:  NSIS, 235.6 MB — built once, now STALE (predates the updater)
+Installer:  NSIS, 236.5 MB — current, launched and verified
 ```
 
 Toolchain installed this session: **Rust 1.98.1** + **MSVC 14.44** + **Windows
@@ -242,7 +242,7 @@ Closes the **last critical security gap** and shrinks the installer from
 | 8 | Bundle the backend correctly | ✅ `bundle.resources` (see below) |
 | 9 | Root `package.json` + Tauri CLI | ✅ neither existed |
 | 10 | `tauri build` produces a working app | ✅ NSIS installer, **235.6 MB** (was 353 MB) |
-| 11 | Launch the bundle and confirm the handshake | ❌ **next task** |
+| 11 | Launch the bundle and confirm the handshake | ✅ **two defects found and fixed** |
 | 12 | Real minisign key | ⏳ waiting on the owner — see below |
 | 13 | GitHub Releases updater | ✅ wired end to end, inert until the key lands |
 
@@ -267,6 +267,41 @@ correct token -> 200      (no file fallback, so the keyring hidden
 2. **The Tauri CLI was never installed** and there was no root `package.json`.
    `npx tauri build` failed outright, which means the desktop bundle had not
    been produced on this machine even once.
+
+### Item 11 found two defects the build could not
+
+The bundle had been produced but never run. Running it surfaced both of
+these immediately; neither is visible from source alone.
+
+**1. The shell looked for the backend in a directory that does not exist**
+(`df0ac40`). It resolved `resource_dir()/backend/aidse-backend/aidse-backend.exe`
+while the bundler writes `resource_dir()/backend/aidse-backend.exe`, because
+`"../dist/aidse-backend": "backend/"` copies the directory's *contents*. The
+installer would have worked, the window would have opened, and every request
+would have failed — the shape of failure that looks like the whole app is
+broken. Two tests now hold the config and the Rust join chain together.
+
+**2. Closing the window left the backend running** (`d9efc36`). Windows does
+not take a child down with its parent and nothing here did either, so every
+launch leaked a 390 MB process still holding its port. This is where the eight
+resident backends came from. The manager now owns the child and stops it on
+`RunEvent::Exit`; the supervisor had to move from a blocking `wait()` to a
+polled `try_wait()`, because it held the mutex the child lives behind exactly
+when shutdown needs it.
+
+**Verified against the running bundle, not the source:**
+
+```
+backend spawned from   target/release/backend/aidse-backend.exe   (parent = shell)
+port 62460, token ab4da3eb… (64 hex, fresh per launch)
+/health            no token      -> 200
+/api/v1/projects   no token      -> 403
+/api/v1/projects   wrong token   -> 403
+/api/v1/projects   shell's token -> 200
+window closed      -> 0 shells, 0 backends, port released
+```
+
+---
 
 ### Where this session stopped
 
@@ -318,10 +353,23 @@ pushed yet; the branch is `master` while the repo's main branch is `main`.
 fetching `wix314-binaries.zip`, and MSI only matters for group-policy
 deployment, which a per-user desktop app does not use.
 
-**Then:** rebuild the bundle and confirm the handshake — item 11. The
-235.6 MB installer is stale because it predates the updater, not because it
-predates the supervision fix: `a293b3a` landed 08:28 and the bundle was written
-08:40, so supervision was already in it.
+**Then:** Phase 5 continues. Four dependencies are gone (`1984999`):
+`asyncpg`, `minio`, `redis` had no importer anywhere, and `celery`'s only
+importer was `services/worker` — a "Phase 0: Scaffold only" package needing a
+Redis broker, reached solely through a `USE_CELERY` branch that defaults off
+because probing for a broker froze experiment creation for twenty seconds.
+Training now has one route: in-process.
+
+**mlflow stays for now**, by the owner's decision. Worth revisiting: 996
+submodules in the bundle and 113 MB of `mlruns/` on disk, for 12 calls whose
+only user-visible output is an un-clickable run id in the experiments table.
+
+Still open in Phase 5/6: pin dependency versions, delete `dist/`,
+`dist-installer/`, `landing-page.rar`, `mlruns/` (~1.7 GB), remove the six
+empty modules and `create_all` from the lifespan, rewrite
+`AIDSE_COMPLETE_PROJECT_DOCS.md`, and decide the fate of
+`infrastructure/docker/` and `infrastructure/kubernetes/` — they describe the
+server deployment and now reference the deleted worker.
 
 ---
 
