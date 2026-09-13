@@ -203,6 +203,46 @@ def test_updater_public_key_is_a_real_minisign_key():
     )
 
 
+def test_the_bundle_actually_produces_updater_artifacts():
+    """
+    An updater with an endpoint, a real key and no artifacts is the worst of
+    all worlds: the build is green, the release looks complete, and no
+    installed copy will ever find an update.
+
+    bundle.createUpdaterArtifacts defaults to FALSE in Tauri v2 — it was
+    implicit in v1 — so configuring the plugin is not enough. The first
+    v0.2.0 release shipped exactly this way: a 232 MB installer, no .sig and
+    no latest.json, because this one flag was missing.
+    """
+    conf = _tauri_conf()
+    if not conf.get("plugins", {}).get("updater"):
+        pytest.skip("updater not configured")
+
+    assert conf.get("bundle", {}).get("createUpdaterArtifacts") is True, (
+        "plugins.updater is configured but bundle.createUpdaterArtifacts is not "
+        "true, so the build produces no signature and tauri-action has nothing "
+        "to write latest.json from"
+    )
+
+
+def test_the_release_workflow_signs_and_publishes_the_manifest():
+    """
+    Three things have to line up for an update to reach anyone: the artifacts
+    are produced (above), the installer is signed with the key whose public
+    half is in the config, and latest.json is uploaded to the release the
+    endpoint points at. Missing any one is silent.
+    """
+    body = (REPO_ROOT / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8"
+    )
+    for needle, why in (
+        ("TAURI_SIGNING_PRIVATE_KEY", "the installer would go out unsigned"),
+        ("TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "the key could not be decrypted"),
+        ("includeUpdaterJson: true", "latest.json would never be uploaded"),
+    ):
+        assert needle in body, f"{needle} missing from the release workflow: {why}"
+
+
 def test_the_page_is_allowed_to_run_the_updater():
     """
     Capabilities gate what the webview may ask Rust to do. Without

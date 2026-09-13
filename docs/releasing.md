@@ -37,6 +37,22 @@ anything signed with a new one; the only way back is asking every user to
 download and run a fresh installer by hand. Back the key up somewhere you
 would trust with a password manager's export.
 
+## Why the first attempt shipped no update
+
+v0.2.0 built green and produced a 232 MB installer with no `.sig` and no
+`latest.json`. The key was right, the secrets were right, the workflow was
+right. `bundle.createUpdaterArtifacts` defaults to **false** in Tauri v2 — it
+was implicit in v1 — so configuring `plugins.updater` produces nothing on its
+own.
+
+Three things must line up, and missing any one of them is silent:
+
+1. `bundle.createUpdaterArtifacts: true` — produces the signature
+2. `TAURI_SIGNING_PRIVATE_KEY` + its password in the build — signs the installer
+3. `includeUpdaterJson: true` — uploads `latest.json` to the release
+
+A test now asserts all three.
+
 ## Cutting a release
 
 `latest.json` takes its version from `src-tauri/tauri.conf.json`, not from the
