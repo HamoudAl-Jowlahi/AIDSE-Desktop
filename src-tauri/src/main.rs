@@ -60,6 +60,15 @@ fn main() {
             sidecar_manager: Arc::new(manager),
         })
         .invoke_handler(tauri::generate_handler![get_sidecar_config])
-        .run(tauri::generate_context!())
-        .expect("error while running AIDSE Tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running AIDSE Tauri application")
+        .run(|app, event| {
+            // Windows does not take a child down with its parent, so closing
+            // the window used to leave the backend running: a 390 MB process
+            // still holding its port, one more after every launch.
+            if let tauri::RunEvent::Exit = event {
+                let state: State<'_, AppState> = app.state();
+                state.sidecar_manager.shutdown();
+            }
+        });
 }

@@ -1,4 +1,5 @@
 use std::net::TcpListener;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -26,6 +27,15 @@ pub struct SidecarManager {
     last_restart: Arc<Mutex<Option<Instant>>>,
     max_retries: u32,
     reset_window: Duration,
+    /// The backend currently running, so closing the window can stop it.
+    ///
+    /// Windows does not kill a child when its parent goes, so without this the
+    /// backend outlived every session: closing the app left a 390 MB process
+    /// holding a port, and launching again started another beside it.
+    child: Arc<Mutex<Option<Child>>>,
+    /// Set once the app is on its way out, so the supervisor does not read a
+    /// deliberate kill as a crash and restart what we just stopped.
+    shutting_down: Arc<AtomicBool>,
 }
 
 /// A free TCP port on loopback, asked for by binding port 0 and reading back
@@ -56,6 +66,8 @@ impl SidecarManager {
             last_restart: Arc::new(Mutex::new(None)),
             max_retries: 3,
             reset_window: Duration::from_secs(60),
+            child: Arc::new(Mutex::new(None)),
+            shutting_down: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -133,22 +145,46 @@ impl SidecarManager {
             child.id(),
             self.config.port
         );
+        *self.child.lock().unwrap() = Some(child);
 
         let manager = Arc::clone(self);
         std::thread::spawn(move || {
-            let mut child = child;
             loop {
-                match child.wait() {
-                    Ok(status) if status.success() => {
-                        log::info!("AIDSE backend exited normally; not restarting.");
+                // Polled rather than blocked on wait(): the child lives behind
+                // a mutex that shutdown() has to be able to take, and a
+                // blocking wait would hold that lock until the process died —
+                // which is exactly when shutdown needs it.
+                let status = loop {
+                    if manager.shutting_down.load(Ordering::SeqCst) {
                         return;
                     }
-                    Ok(status) => log::error!("AIDSE backend exited with {status}"),
-                    Err(e) => {
-                        log::error!("lost track of the AIDSE backend: {e}");
-                        return;
+                    let polled = {
+                        let mut guard = manager.child.lock().unwrap();
+                        match guard.as_mut() {
+                            Some(child) => child.try_wait(),
+                            // shutdown() took it; nothing left to supervise.
+                            None => return,
+                        }
+                    };
+                    match polled {
+                        Ok(Some(status)) => break status,
+                        Ok(None) => std::thread::sleep(Duration::from_millis(500)),
+                        Err(e) => {
+                            log::error!("lost track of the AIDSE backend: {e}");
+                            return;
+                        }
                     }
+                };
+
+                if manager.shutting_down.load(Ordering::SeqCst) {
+                    return;
                 }
+
+                if status.success() {
+                    log::info!("AIDSE backend exited normally; not restarting.");
+                    return;
+                }
+                log::error!("AIDSE backend exited with {status}");
 
                 if !manager.should_restart() {
                     log::error!(
@@ -163,7 +199,7 @@ impl SidecarManager {
                 match manager.launch(&backend) {
                     Ok(next) => {
                         log::warn!("restarted the AIDSE backend (pid {})", next.id());
-                        child = next;
+                        *manager.child.lock().unwrap() = Some(next);
                     }
                     Err(e) => {
                         log::error!("could not restart the AIDSE backend: {e}");
@@ -174,6 +210,33 @@ impl SidecarManager {
         });
 
         Ok(())
+    }
+
+    /// Stop the backend. Called when the app exits.
+    ///
+    /// Without it the backend survives the window that started it, because on
+    /// Windows a child is not killed with its parent. Every run left one
+    /// behind, which is how eight of them ended up resident at once.
+    pub fn shutdown(&self) {
+        self.shutting_down.store(true, Ordering::SeqCst);
+
+        let child = self.child.lock().unwrap().take();
+        if let Some(mut child) = child {
+            let pid = child.id();
+            match child.kill() {
+                // Already gone is a success: the goal is that it is not running.
+                Ok(()) | Err(_) => {
+                    let _ = child.wait();
+                    log::info!("AIDSE backend (pid {pid}) stopped with the app.");
+                }
+            }
+        }
+    }
+
+    /// Whether shutdown() has been called. The supervisor checks this so a
+    /// deliberate kill is never mistaken for a crash worth restarting.
+    pub fn is_shutting_down(&self) -> bool {
+        self.shutting_down.load(Ordering::SeqCst)
     }
 
     pub fn should_restart(&self) -> bool {
@@ -250,6 +313,60 @@ mod tests {
             m.should_restart(),
             "a crash long after the previous one must not count against the old budget"
         );
+    }
+
+    /// A child that will outlive the test unless something kills it.
+    fn long_running_child() -> Child {
+        Command::new("cmd")
+            .args(["/C", "ping -n 120 127.0.0.1"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("could not start the stand-in child process")
+    }
+
+    #[test]
+    fn shutdown_actually_kills_the_backend() {
+        // Closing the window used to leave the backend running, because on
+        // Windows a child is not taken down with its parent. This is that bug.
+        let m = manager();
+        *m.child.lock().unwrap() = Some(long_running_child());
+
+        let started = Instant::now();
+        m.shutdown();
+        let elapsed = started.elapsed();
+
+        // shutdown() waits for the process after killing it, so it can only
+        // return promptly if the kill worked. Without it, this waits 120 s.
+        assert!(
+            elapsed < Duration::from_secs(15),
+            "shutdown took {elapsed:?}; the child was not killed, only waited on"
+        );
+        assert!(
+            m.child.lock().unwrap().is_none(),
+            "shutdown must release the child so nothing tries to supervise it"
+        );
+    }
+
+    #[test]
+    fn shutdown_stops_the_supervisor_from_restarting() {
+        let m = manager();
+        assert!(!m.is_shutting_down());
+
+        m.shutdown();
+
+        assert!(
+            m.is_shutting_down(),
+            "the supervisor reads this flag; without it a deliberate kill looks              like a crash and the backend is restarted on the way out"
+        );
+    }
+
+    #[test]
+    fn shutdown_is_safe_with_no_backend_running() {
+        // Startup can fail before anything is spawned, and exit still runs.
+        let m = manager();
+        m.shutdown();
+        m.shutdown();
     }
 
     #[test]
