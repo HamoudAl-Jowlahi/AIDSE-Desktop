@@ -228,8 +228,8 @@ async def test_task_detection_endpoint(client: AsyncClient, auth_headers: dict):
 @pytest.mark.asyncio
 async def test_experiment_accepts_algorithms_field(client: AsyncClient, auth_headers: dict):
     """Experiment creation validates the focused algorithm list and persists
-    the row even when no Celery broker is available (status becomes failed
-    with a dispatch error, but the API contract holds)."""
+    the row. Training is spawned in-process and the suite disables it, so the
+    row stays pending — the point here is the API contract, not the fit."""
     project = await create_project(client, auth_headers)
     dataset = await create_dataset(client, auth_headers, project["id"])
     await _upload(client, auth_headers, project["id"], dataset["id"])
@@ -247,5 +247,5 @@ async def test_experiment_accepts_algorithms_field(client: AsyncClient, auth_hea
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["algorithms"] == ["logistic_regression", "svm"]
-    # Without a running Redis broker the dispatch is recorded honestly:
+    # Training is disabled for the suite, so the row is recorded honestly:
     assert body["status"] in ("pending", "failed")

@@ -35,18 +35,11 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
     # Echo every SQL statement to the console — off by default (log noise)
     SQL_ECHO: bool = False
-    # When no Celery broker is reachable, run AutoML training in-process instead.
-    # This is how the desktop build trains (there is no Redis). Turned off in the
-    # test suite so dispatching an experiment does not fit real models.
+    # Run AutoML training in-process. This is the only way the desktop build
+    # trains: the Celery worker it used to dispatch to needed a Redis broker,
+    # which no desktop install has. Turned off in the test suite so creating an
+    # experiment does not fit real models.
     LOCAL_TRAINING_FALLBACK: bool = True
-    # Whether to hand training to Celery at all.
-    #
-    # Discovering "no broker" by attempting a connection is not free: Celery's
-    # redis result backend retries 20 times at one second each, so every
-    # experiment creation blocked the request — and therefore the UI — for
-    # more than twenty seconds on any machine without Redis, which is every
-    # desktop install. Decide from configuration instead of from a timeout.
-    USE_CELERY: bool = False
     # Brute-force protection on auth endpoints (Section 13.6)
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_AUTH: str = "5/minute"
@@ -56,11 +49,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+asyncpg://aidse:aidse_dev_password@localhost:5432/aidse"
     )
-
-    # ── Redis ─────────────────────────────────────────────────────────────────
-    REDIS_URL: str = "redis://localhost:6379/0"
-    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
-    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # ── JWT (RS256) ───────────────────────────────────────────────────────────
     # Paths to PEM files (resolved relative to repo root).
@@ -79,14 +67,6 @@ class Settings(BaseSettings):
 
     # ── CORS ─────────────────────────────────────────────────────────────────
     CORS_ORIGINS: str = "http://localhost:3000"
-
-    # ── Object Storage (MinIO / S3) ──────────────────────────────────────────
-    MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "aidse_minio_access"
-    MINIO_SECRET_KEY: str = "aidse_minio_secret"
-    MINIO_BUCKET_DATASETS: str = "datasets"
-    MINIO_BUCKET_MODELS: str = "models"
-    MINIO_USE_SSL: bool = False
 
     # ── LLM Provider (recommendation explanations, AI analyst) ──────────────
     # "none" keeps every feature fully functional with deterministic
@@ -113,10 +93,6 @@ class Settings(BaseSettings):
         weak: list[str] = []
         if self.SECRET_KEY in ("change-me-in-production", "", None):
             weak.append("SECRET_KEY")
-        if self.MINIO_SECRET_KEY == "aidse_minio_secret":
-            weak.append("MINIO_SECRET_KEY")
-        if self.MINIO_ACCESS_KEY == "aidse_minio_access":
-            weak.append("MINIO_ACCESS_KEY")
         if weak:
             raise RuntimeError(
                 "Refusing to start in production with insecure defaults: "

@@ -94,7 +94,6 @@ Key variables:
 | Variable | Description | Default |
 |---|---|---|
 | `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://...` |
-| `REDIS_URL` | Redis connection | `redis://localhost:6379/0` |
 | `JWT_PRIVATE_KEY_PATH` | Path to RSA private key PEM | `./keys/private.pem` |
 | `JWT_PUBLIC_KEY_PATH` | Path to RSA public key PEM | `./keys/public.pem` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT access token TTL | `15` |

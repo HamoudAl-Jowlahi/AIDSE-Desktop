@@ -3,7 +3,6 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from unittest.mock import patch
 
-from apps.api.core.config import get_settings
 import uuid
 
 @pytest.mark.asyncio
@@ -12,7 +11,6 @@ async def test_create_and_list_experiments(
     logged_in_user: dict,
     auth_headers: dict,
     db: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ):
     # 1. Create a Project
     proj_resp = await client.post(
@@ -32,19 +30,21 @@ async def test_create_and_list_experiments(
     assert ds_resp.status_code == 201
     dataset_id = ds_resp.json()["id"]
 
-    # 3. Create an AutoML Experiment; the router dispatches via Celery's
-    #    apply_async (the path production actually takes — it passes
-    #    connect_timeout so an unreachable broker fails fast).
+    # 3. Create an AutoML Experiment. There is exactly one training path now:
+    #    the router spawns it in-process. It used to try a Celery broker first,
+    #    and this test asserted against that mock — which meant it passed while
+    #    saying nothing about what a desktop install actually does.
     payload = {
         "target_column": "price",
         "problem_type": "regression",
         "primary_metric": "rmse"
     }
 
-    # USE_CELERY defaults to false so desktop installs never probe for a broker;
-    # turn it on here because this test is specifically about the dispatch path.
-    monkeypatch.setattr(get_settings(), "USE_CELERY", True, raising=False)
-    with patch("apps.api.modules.automl.router.run_automl_experiment.apply_async") as mock_dispatch:
+    # Fitting real models here would make the suite take minutes, so assert on
+    # the spawn rather than letting it run. LOCAL_TRAINING_FALLBACK is off for
+    # the suite anyway (conftest), so _spawn_local_training returns early — the
+    # patch is what proves the router reached it.
+    with patch("apps.api.modules.automl.router._spawn_local_training") as mock_spawn:
         exp_resp = await client.post(
             f"/api/v1/projects/{project_id}/datasets/{dataset_id}/automl/experiments",
             json=payload,
@@ -58,7 +58,7 @@ async def test_create_and_list_experiments(
         assert exp_data["problem_type"] == "regression"
         assert exp_data["status"] == "pending"
 
-        mock_dispatch.assert_called_once_with(args=[experiment_id], connect_timeout=1)
+        mock_spawn.assert_called_once_with(experiment_id)
 
     # 4. List Experiments
     list_resp = await client.get(

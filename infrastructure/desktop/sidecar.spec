@@ -44,13 +44,6 @@ hiddenimports = [
     'shap',
     'mlflow',
     'mlflow.sklearn',
-    'celery',
-    'celery.fixups',
-    'celery.fixups.django',
-    'kombu',
-    'kombu.transport',
-    'kombu.transport.redis',
-    'kombu.transport.memory',
     # vault.py imports keyring inside a try/except, so PyInstaller cannot see
     # it by static analysis. Without these the packaged app silently falls back
     # to the file-based secret instead of Windows Credential Manager.

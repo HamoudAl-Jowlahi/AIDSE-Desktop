@@ -50,11 +50,6 @@ def _spawn_local_training(experiment_id: str) -> None:
 
     task.add_done_callback(_done)
 
-try:
-    from services.worker.tasks.training_tasks import run_automl_experiment
-except Exception:
-    run_automl_experiment = None
-
 router = APIRouter(tags=["AutoML"])
 
 
@@ -117,21 +112,13 @@ async def create_experiment(
     stmt_exp = select(models.Experiment).where(models.Experiment.id == experiment.id).options(selectinload(models.Experiment.trials))
     experiment = (await db.execute(stmt_exp)).scalar_one()
 
-    # Dispatch to Celery only when it is configured. Probing for a broker is
-    # what made this endpoint hang: connect_timeout bounds the *broker* dial,
-    # but the redis result backend retries separately — twenty attempts, one
-    # second apart — so creating an experiment blocked for over twenty seconds
-    # on any machine without Redis. Desktop installs never have one.
-    from apps.api.core.config import get_settings
-
-    if get_settings().USE_CELERY and run_automl_experiment is not None:
-        try:
-            run_automl_experiment.apply_async(args=[str(experiment.id)], connect_timeout=1)
-        except Exception as exc:
-            logger.warning("Celery dispatch failed (%s); training locally instead.", exc)
-            _spawn_local_training(str(experiment.id))
-    else:
-        _spawn_local_training(str(experiment.id))
+    # Train in-process. This used to try a Celery broker first, which is what
+    # made the endpoint hang: connect_timeout bounded the broker dial, but the
+    # redis result backend retried separately — twenty attempts a second apart —
+    # so creating an experiment blocked the request, and the UI with it, for
+    # over twenty seconds on any machine without Redis. That is every desktop
+    # install, so the worker and its broker are gone.
+    _spawn_local_training(str(experiment.id))
 
     return experiment
 
