@@ -4,7 +4,7 @@ AIDSE Platform — Packaging integrity and offline operation
 The previous version of this file wrote b"mock_binary_payload" into a temp
 directory, deleted it, and asserted the directory was gone; it also measured
 numpy allocations and called that "resource profiling". None of it touched the
-packaging, so it stayed green while installer.iss shipped an incomplete file
+packaging, so it stayed green while the installer shipped an incomplete file
 set and the migration runner silently did nothing on every installed machine.
 
 These tests read the real manifests and run the real pipeline instead.
@@ -20,57 +20,76 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-# ── Installer manifest ─────────────────────────────────────────────────────
+# ── Bundled backend manifest ───────────────────────────────────────────────
+
+SPEC = REPO_ROOT / "infrastructure" / "desktop" / "sidecar.spec"
 
 
-def _installer_sources() -> list[str]:
-    """Every `Source:` path declared in the [Files] section of installer.iss."""
-    text = (REPO_ROOT / "installer.iss").read_text(encoding="utf-8")
-    files_section = text.split("[Files]", 1)[1].split("[Icons]", 1)[0]
-    return re.findall(r'Source:\s*"([^"]+)"', files_section)
+def _spec_datas() -> list[tuple[str, str]]:
+    """The (source, destination) pairs in the spec's literal `datas` list."""
+    text = SPEC.read_text(encoding="utf-8")
+    block = text.split("datas = [", 1)[1].split("]", 1)[0]
+    return re.findall(r"\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)", block)
 
 
-def test_every_installer_source_exists_in_the_repo():
+def test_bundle_ships_the_alembic_config():
     """
-    A Source: line pointing at a path that does not exist produces an installer
-    missing that file, with no error at build time for anything wildcarded.
+    The migration runner resolves alembic.ini from the bundle root. Without it
+    run_migrations_headless() finds nothing and returns, which is how every
+    install ended up with a create_all schema and no recorded revision — and
+    create_all no longer exists to cover for it.
+
+    This used to assert against installer.iss, the Inno Setup script for the
+    Edge-launcher build. That installer is gone; the app ships as a Tauri
+    bundle whose backend comes from this spec.
     """
-    missing = []
-    for source in _installer_sources():
-        # Trailing \* means "this directory's contents"; check the directory.
-        candidate = REPO_ROOT / source.replace("\\*", "").replace("\\", "/")
-        if not candidate.exists():
-            missing.append(source)
+    destinations = {dest.replace("\\", "/") for _, dest in _spec_datas()}
+    sources = {src.rsplit("/", 1)[-1] for src, _ in _spec_datas()}
 
-    assert not missing, f"installer.iss references paths that do not exist: {missing}"
-
-
-def test_installer_ships_the_alembic_config():
-    """
-    The migration runner resolves alembic.ini next to apps/. Without it in the
-    installed tree, run_migrations_headless() finds nothing and returns, which
-    is how every install ended up with a create_all schema and no recorded
-    revision.
-    """
-    sources = [s.replace("\\", "/").lower() for s in _installer_sources()]
-    assert "alembic.ini" in sources, "installer.iss does not ship alembic.ini"
+    assert "alembic.ini" in sources, (
+        f"sidecar.spec does not bundle alembic.ini; datas: {_spec_datas()}"
+    )
+    assert "." in destinations, "alembic.ini must land at the bundle root"
 
 
-def test_installer_ships_the_migration_scripts():
-    """apps\\api\\* carries db/migrations; assert the versions actually exist."""
+def test_bundle_ships_the_migration_scripts():
+    datas = _spec_datas()
+    assert any("db/migrations" in src.replace("\\", "/") for src, _ in datas), (
+        f"sidecar.spec does not bundle the migration scripts; datas: {datas}"
+    )
+
     versions = REPO_ROOT / "apps" / "api" / "db" / "migrations" / "versions"
     revisions = [p for p in versions.glob("*.py") if p.name != "__init__.py"]
     assert revisions, "no migration revisions found to package"
 
 
-def test_installer_does_not_ship_secrets():
-    """Signing keys and .env must never reach an end user's machine."""
-    forbidden = ("keys", ".env", "private.pem", ".db")
+def test_bundle_does_not_ship_secrets():
+    """Signing keys, .env and local databases must never reach a user."""
+    forbidden = ("keys", ".env", "private.pem", ".db", "storage")
     leaked = [
-        s for s in _installer_sources()
-        if any(token in s.lower() for token in forbidden)
+        src for src, _ in _spec_datas()
+        if any(token in src.lower() for token in forbidden)
     ]
-    assert not leaked, f"installer.iss would ship secrets or local state: {leaked}"
+    assert not leaked, f"sidecar.spec would ship secrets or local state: {leaked}"
+
+
+def test_the_built_bundle_really_contains_them():
+    """
+    The checks above read the manifest. This one reads the build output, so a
+    spec that declares the right paths but produces nothing is still caught.
+    Skipped until the sidecar has been built.
+    """
+    built = REPO_ROOT / "dist" / "aidse-backend" / "_internal"
+    if not built.is_dir():
+        pytest.skip("sidecar not built in this checkout")
+
+    assert (built / "alembic.ini").is_file(), (
+        "the built bundle has no alembic.ini at its root; migrations would do nothing"
+    )
+    versions = built / "apps" / "api" / "db" / "migrations" / "versions"
+    assert versions.is_dir() and any(versions.glob("*.py")), (
+        f"the built bundle carries no migration scripts at {versions}"
+    )
 
 
 # ── PyInstaller spec ───────────────────────────────────────────────────────

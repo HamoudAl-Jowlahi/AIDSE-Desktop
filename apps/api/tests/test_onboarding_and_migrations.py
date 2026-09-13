@@ -125,14 +125,21 @@ def test_onboarding_claims_no_encryption_the_product_lacks():
     [
         Path("apps") / "web" / "components" / "onboarding" / "OnboardingWizard.tsx",
         Path("landing-page") / "index.html",
-        Path("README_DESKTOP.md"),
+        Path("README.md"),
         Path("docs") / "local_privacy_guide.md",
     ],
 )
 def test_no_user_facing_surface_claims_sqlcipher(path):
     """
     The claim appeared in the app, the marketing page (both languages) and the
-    docs. threat_model.md is excluded: it names SQLCipher to say it is absent.
+    docs. Two files are excluded because they name SQLCipher only to say it is
+    absent and explain what replaced it: docs/threat_model.md and
+    AIDSE_COMPLETE_PROJECT_DOCS.md. Recording that a false claim was made is
+    the opposite of making it.
+
+    README_DESKTOP.md used to be on this list. It was a second, partly stale
+    readme — it told the reader to run start-backend.bat and
+    start-frontend.bat, neither of which exists — and README.md took its place.
     """
     target = REPO_ROOT / path
     if not target.is_file():

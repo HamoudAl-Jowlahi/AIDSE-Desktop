@@ -44,7 +44,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         async with engine.begin() as conn:
             await conn.execute(text("SELECT 1"))
             if "sqlite" in str(engine.url):
-                # Auto-create all tables in SQLite for standalone desktop execution
+                # Imported so the models register on Base.metadata. They are
+                # not imported to build the schema — Alembic above does that.
                 import apps.api.modules.auth.models  # noqa
                 import apps.api.modules.projects.models  # noqa
                 import apps.api.modules.datasets.models  # noqa
@@ -69,7 +70,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         ", ".join(legacy),
                     )
 
-                await conn.run_sync(Base.metadata.create_all)
+                # No create_all here. It used to run on every start, which
+                # meant a failed migration was invisible: the tables appeared
+                # anyway, with no row in alembic_version, and the next real
+                # migration had nothing to upgrade from. Every install ended up
+                # in that state. If the schema is missing now, migrations
+                # failed, and that should be loud rather than papered over.
 
                 # Seed desktop local admin user if absent
                 from apps.api.core.dependencies import DEFAULT_DESKTOP_USER_ID

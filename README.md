@@ -1,164 +1,152 @@
-# AIDSE Platform
+# AIDSE Desktop
 
-**AI Data Scientist & AI Evaluation Platform** — Unified SaaS for model training, evaluation, regression detection, explainability, and MLOps monitoring.
+**AI Data Scientist & Evaluation Platform** — dataset profiling and preparation,
+AutoML training, evaluation against golden datasets, and SHAP explainability,
+running entirely on the machine it is installed on.
 
-> Phase 0 (Foundation) — Authentication + Project management + Infrastructure skeleton
+This repository is the desktop application. It was forked from a multi-tenant
+web platform, and the fork is worth knowing about: anything here that still
+talks about tenants, Docker, PostgreSQL or object storage is a leftover, not a
+feature.
 
 ---
 
-## Quick Start (Local Development)
+## What it is
 
-### Prerequisites
-- Docker Desktop (running)
-- Python 3.11+
-- Node.js 20+
-- Git
+| | |
+|---|---|
+| Shell | Tauri v2 (Rust) with the system WebView |
+| Frontend | Next.js 15 App Router, static export, React 19, Tailwind v4 |
+| Backend | FastAPI, launched by the shell as a child process |
+| Database | SQLite via async SQLAlchemy 2, migrated by Alembic |
+| ML | scikit-learn, XGBoost, LightGBM, CatBoost, Optuna, SHAP |
 
-### 1. Clone and setup environment
+The backend listens on loopback on a port the OS assigns at launch, and the
+shell hands it a fresh 256-bit token that every request must carry. A process
+that cannot read the shell's memory cannot call the API, even though it is
+running as the same user.
+
+**What is encrypted:** stored provider API keys, with Fernet, under a
+per-install secret in the OS credential store. **What is not:** the database
+file itself, your datasets, and project files. Use full-disk encryption for
+those. See [`docs/threat_model.md`](docs/threat_model.md).
+
+---
+
+## Running it during development
+
 ```bash
-git clone <repo-url>
-cd aidse-platform
-cp .env.example .env
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt -r requirements-dev.txt
+npm install
+npm --prefix apps/web install
 ```
 
-### 2. Generate JWT key pair
+JWT signing keys are read from `keys/`. Generate them once:
+
 ```bash
-mkdir keys
+mkdir -p keys
 openssl genrsa -out keys/private.pem 2048
 openssl rsa -in keys/private.pem -pubout -out keys/public.pem
 ```
 
-### 3. Start all services
-```bash
-docker compose -f infrastructure/docker/docker-compose.yml up -d
-```
+Then, from the repository root:
 
-Services available at:
-| Service | URL |
-|---|---|
-| FastAPI API | http://localhost:8000 |
-| API Docs (Swagger) | http://localhost:8000/api/docs |
-| MinIO Console | http://localhost:9001 |
-
-### 4. Run database migrations
 ```bash
-# From the api container or locally with venv activated:
-alembic upgrade head
-```
-
-### 5. Start the frontend (separate terminal)
-```bash
-cd apps/web
-npm install
 npm run dev
 ```
 
-Frontend available at: http://localhost:3000
+That starts the Next.js dev server and opens the Tauri window against it. The
+window launches the backend itself — there is no separate command for it, and
+starting one by hand only produces a second backend the window ignores.
 
 ---
 
-## How to Run Tests
+## Tests
 
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate  # macOS/Linux
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Generate test JWT keys
-mkdir keys
-openssl genrsa -out keys/private.pem 2048
-openssl rsa -in keys/private.pem -pubout -out keys/public.pem
-
-# Run tests
-pytest apps/api/modules apps/api/tests -v --cov=apps/api/modules
-
-# Run with HTML coverage report
-pytest apps/api/modules --cov=apps/api/modules --cov-report=html
-# Open htmlcov/index.html
+.venv/Scripts/pytest
 ```
 
-Tests use SQLite in-memory (no Docker needed for unit/integration tests).
+296 tests, about four minutes, no network and no Docker. `pyproject.toml`
+points pytest at `apps/api/modules` and `apps/api/tests`.
+
+Rust tests for the shell:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+A note on what the tests are for. Several files here once asserted against
+mocks they had defined themselves, so they passed while the thing they named
+was broken — the installer shipped an incomplete file set, migrations silently
+did nothing, and the sidecar restart policy was unit-tested but never called.
+When you add a test, break the code it covers and confirm it fails. A test that
+cannot fail is worse than none, because it is read as coverage.
 
 ---
 
-## Environment Variables
+## Building the installer
 
-See [`.env.example`](.env.example) for the full list of required variables.
+Requires the Rust toolchain and MSVC build tools.
 
-Key variables:
+```bash
+.venv/Scripts/pyinstaller infrastructure/desktop/sidecar.spec --distpath dist --noconfirm
+npm run build
+```
 
-| Variable | Description | Default |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql+asyncpg://...` |
-| `JWT_PRIVATE_KEY_PATH` | Path to RSA private key PEM | `./keys/private.pem` |
-| `JWT_PUBLIC_KEY_PATH` | Path to RSA public key PEM | `./keys/public.pem` |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT access token TTL | `15` |
-| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` |
+The first command bundles the Python backend into `dist/aidse-backend` — a
+launcher stub plus an `_internal` tree it loads its Python DLL from, which is
+why it ships as a resource directory rather than a single binary. The second
+builds the frontend and produces
+`src-tauri/target/release/bundle/nsis/`, roughly 236 MB.
+
+Most of that size is Python and the ML libraries, and no packaging choice
+changes it.
+
+Releases and the update mechanism: [`docs/releasing.md`](docs/releasing.md).
 
 ---
 
-## Architecture
+## Layout
 
 ```
 apps/
-  api/          FastAPI backend (modular monolith)
-  web/          Next.js 14 frontend (App Router)
+  api/            FastAPI backend (modular monolith)
+    db/           models, session, Alembic migrations, secret vault
+    modules/      auth, projects, datasets, automl, evaluation,
+                  explainability, conversational, reporting
+  web/            Next.js frontend; `out/` is the static export the shell serves
 
-services/
-  worker/       Celery async task workers
-
-packages/
-  ml-core/      Shared ML/AI logic
-  shared-types/ TypeScript types from OpenAPI
-
+src-tauri/        Rust shell: window, backend supervision, updater
 infrastructure/
-  docker/       Docker Compose + Dockerfiles
-  github-actions/ CI/CD pipelines
-  kubernetes/   Production Kubernetes manifests
+  desktop/        PyInstaller spec for the backend bundle
+docs/             threat model, privacy guide, release process, ADRs
+keys/             JWT PEMs — generated locally, never committed
 ```
 
-See [`docs/adr/`](docs/adr/) for architecture decisions.
-
 ---
 
-## Phase Status
+## Configuration
 
-| Phase | Name | Status |
+`.env.example` lists what can be set. The defaults are correct for a desktop
+install; most of these exist for development.
+
+| Variable | Description | Default |
 |---|---|---|
-| 0 | Foundation (Auth + Projects + Infra) | 🔨 In Progress |
-| 1 | Evaluation Platform | ⏳ Pending |
-| 2 | Regression Detection | ⏳ Pending |
-| 3 | Dataset Intelligence | ⏳ Pending |
-| 4 | AutoML | ⏳ Pending |
-| 5 | Explainability | ⏳ Pending |
-| 6 | Conversational Analytics | ⏳ Pending |
-| 7 | MLOps | ⏳ Pending |
-| 8 | Enterprise Features | ⏳ Pending |
-
----
-
-## API Reference
-
-Auto-generated API docs at `http://localhost:8000/api/docs` (Swagger UI) or `http://localhost:8000/api/redoc`.
-
-Base path: `/api/v1`
-Auth: `Authorization: Bearer <access_token>`
+| `AIDSE_DATA_DIR` | Where the database and datasets live | OS app-data directory |
+| `DATABASE_URL` | SQLAlchemy URL. The shell's backend sets this to SQLite under `AIDSE_DATA_DIR` at startup; the bare default is a leftover PostgreSQL URL that only applies if you run the API by hand without `AIDSE_DESKTOP_MODE=1` | see note |
+| `JWT_PRIVATE_KEY_PATH` | RSA private key PEM | `./keys/private.pem` |
+| `JWT_PUBLIC_KEY_PATH` | RSA public key PEM | `./keys/public.pem` |
+| `LOCAL_TRAINING_FALLBACK` | Run AutoML in-process | `true` |
+| `RATE_LIMIT_ENABLED` | Throttle auth endpoints | `true` |
 
 ---
 
 ## Contributing
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/):
-- `feat:` new feature
-- `fix:` bug fix
-- `refactor:` code change with no behavior change
-- `test:` adding tests
-- `docs:` documentation only
+[Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`,
+`refactor:`, `test:`, `docs:`.
 
-Branch naming: `feature/<phase>-<short-description>` (e.g., `feature/phase1-golden-dataset-crud`)
-
-All changes go through a reviewed PR before merge to `main` per Section 23.7.
+Say what changed and why it was wrong before. A commit message that only
+names the file teaches the next reader nothing.
