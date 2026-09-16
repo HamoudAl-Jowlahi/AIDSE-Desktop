@@ -405,6 +405,34 @@
       </div>
     </section>
 
+    <!-- LIMITS: stated up front, so nobody meets them mid-upload -->
+    <section class="py-32 border-t border-white/5">
+      <div class="max-w-5xl mx-auto px-6 text-center">
+        <div class="text-xs mono text-white/25 tracking-[.3em]" data-i18n="lim_eyebrow">التفاصيل الدقيقة</div>
+        <h2 class="text-4xl md:text-6xl font-black tracking-[-.05em] mt-6" data-i18n="lim_title">الحدود الفعلية</h2>
+        <p class="mt-6 text-white/45 text-lg leading-9 max-w-2xl mx-auto" data-i18n="lim_desc">هذه حدود صارمة في الإصدار الحالي، لا إرشادات. الملف الذي يتجاوزها يُرفض برسالة واضحة ولا يُقتطع بصمت.</p>
+        <div class="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="glass rounded-2xl p-6 reveal">
+            <div class="text-3xl font-black accent">100 MB</div>
+            <div class="text-sm text-white/40 mt-3" data-i18n="lim1">أقصى حجم للملف الواحد</div>
+          </div>
+          <div class="glass rounded-2xl p-6 reveal">
+            <div class="text-3xl font-black accent">500,000</div>
+            <div class="text-sm text-white/40 mt-3" data-i18n="lim2">صف يُحلّل بالكامل — وما فوقه على عيّنة يُصرّح بها التقرير</div>
+          </div>
+          <div class="glass rounded-2xl p-6 reveal">
+            <div class="text-3xl font-black accent">CSV XLSX</div>
+            <div class="text-sm text-white/40 mt-3" data-i18n="lim3">الصيغ المدعومة — ملفات ZIP غير مدعومة</div>
+          </div>
+          <div class="glass rounded-2xl p-6 reveal">
+            <div class="text-3xl font-black accent">10</div>
+            <div class="text-sm text-white/40 mt-3" data-i18n="lim4">نماذج تُدرّب وتُقارن في كل جولة AutoML</div>
+          </div>
+        </div>
+        <p class="mt-10 text-sm text-white/25 max-w-2xl mx-auto leading-7" data-i18n="lim_note">الملف يُقرأ في الذاكرة بالكامل قبل التحليل، لذلك يحتاج ملف 100 ميجابايت ذاكرة حرة أكثر من ذلك. ولأن كل شيء يعمل على جهازك، سرعة التدريب هي سرعة عتادك.</p>
+      </div>
+    </section>
+
     <!-- FINAL CTA -->
     <section class="min-h-[75vh] flex items-center justify-center border-t border-white/5 relative overflow-hidden">
       <div class="absolute w-[700px] h-[700px] rounded-full border border-white/5"></div>
@@ -491,6 +519,14 @@
         feat3_h: "اختبر<br>الثبات والجودة",
         feat3_p: "أربع استراتيجيات متقدمة للتقييم مع بوابات كشف التراجع لمراقبة جودة النماذج وموثوقيتها.",
         priv_kicker: "محلي بطبيعته وتصميمه",
+        lim_eyebrow: "التفاصيل الدقيقة",
+        lim_title: "الحدود الفعلية",
+        lim_desc: "هذه حدود صارمة في الإصدار الحالي، لا إرشادات. الملف الذي يتجاوزها يُرفض برسالة واضحة ولا يُقتطع بصمت.",
+        lim1: "أقصى حجم للملف الواحد",
+        lim2: "صف يُحلّل بالكامل — وما فوقه على عيّنة يُصرّح بها التقرير",
+        lim3: "الصيغ المدعومة — ملفات ZIP غير مدعومة",
+        lim4: "نماذج تُدرّب وتُقارن في كل جولة AutoML",
+        lim_note: "الملف يُقرأ في الذاكرة بالكامل قبل التحليل، لذلك يحتاج ملف 100 ميجابايت ذاكرة حرة أكثر من ذلك. ولأن كل شيء يعمل على جهازك، سرعة التدريب هي سرعة عتادك.",
         priv_title: "لا تحتاج إلى<br><span class=\"accent\">Cloud.</span>",
         priv_desc: "AIDSE يعمل بالكامل على جهازك. بياناتك لا تغادره، ولا يُرسَل شيء إلى أي خادم.",
         priv1_sub: "بدون اعتماد على الإنترنت أثناء العمل والتدريب.",
@@ -549,6 +585,14 @@
         feat3_h: "Evaluation &<br>Gate Checks",
         feat3_p: "Four rigorous evaluation strategies with regression gate detectors to maintain model trustworthiness.",
         priv_kicker: "LOCAL BY DESIGN",
+        lim_eyebrow: "THE FINE PRINT",
+        lim_title: "The actual limits",
+        lim_desc: "Hard limits in the current release, not guidance. A file past them is refused with a clear message rather than silently truncated.",
+        lim1: "Maximum size per uploaded file",
+        lim2: "Rows profiled in full \u2014 beyond that, on a sample the report declares",
+        lim3: "Supported formats \u2014 ZIP archives are not",
+        lim4: "Models trained and compared in every AutoML run",
+        lim_note: "Files are read into memory in full before parsing, so a 100 MB dataset needs comfortably more than 100 MB free. And because everything runs on your machine, training takes exactly as long as your hardware takes.",
         priv_title: "No Need for<br><span class=\"accent\">The Cloud.</span>",
         priv_desc: "AIDSE runs entirely on your device. Your data never leaves it, and nothing is sent to any server.",
         priv1_sub: "Zero internet dependency during day-to-day modeling.",
