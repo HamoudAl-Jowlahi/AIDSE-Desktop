@@ -351,6 +351,49 @@
       </div>
     </section>
 
+    <!-- UNDERSTAND THE DATA: the half of the product the page never showed -->
+    <section class="py-32 border-t border-white/5">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="flex items-end justify-between flex-wrap gap-4">
+          <div>
+            <div class="text-xs mono text-white/25 tracking-[.3em]" data-i18n="und_kicker">قبل التدريب</div>
+            <h2 class="text-4xl md:text-6xl font-black tracking-[-.05em] mt-5" data-i18n="und_title">افهم بياناتك قبل أن تغيّرها</h2>
+          </div>
+          <div class="hidden md:block text-xs text-white/25 mono">AIDSE / DATA</div>
+        </div>
+        <p class="mt-7 text-white/45 text-lg leading-9 max-w-3xl" data-i18n="und_desc">يفحص AIDSE الملف عند رفعه ويعرض ما وجده بأرقام محسوبة من بياناتك نفسها — ولا يغيّر شيئاً إلا بموافقتك.</p>
+
+        <div class="grid lg:grid-cols-3 gap-4 mt-14">
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[300px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">01 / QUALITY</div>
+              <h3 class="text-2xl font-black mt-5" data-i18n="und1_h">تقرير جودة بالأرقام</h3>
+              <p class="text-white/40 leading-8 mt-4" data-i18n="und1_p">الصفوف المكررة، والقيم الناقصة، والأعمدة الثابتة، والأعمدة المتطابقة حرفياً — مع سبب كل ملاحظة.</p>
+            </div>
+            <div class="flex gap-2 mt-7 flex-wrap"><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">duplicates</span><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">constants</span></div>
+          </article>
+
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[300px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">02 / OUTLIERS</div>
+              <h3 class="text-2xl font-black mt-5" data-i18n="und2_h">القيم الشاذة واللانهائية</h3>
+              <p class="text-white/40 leading-8 mt-4" data-i18n="und2_p">اللانهاية ليست قيمة متطرفة بل غير معرّفة، وتُعرض منفصلة عن القيم الشاذة لأن علاجهما مختلف.</p>
+            </div>
+            <div class="flex gap-2 mt-7 flex-wrap"><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">IQR</span><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">z-score</span><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">&plusmn;&infin;</span></div>
+          </article>
+
+          <article class="glass rounded-3xl p-7 md:p-9 min-h-[300px] flex flex-col justify-between reveal align-start">
+            <div>
+              <div class="text-xs mono text-white/25">03 / COMPARE</div>
+              <h3 class="text-2xl font-black mt-5" data-i18n="und3_h">قِسْ التنظيف لا تخمّنه</h3>
+              <p class="text-white/40 leading-8 mt-4" data-i18n="und3_p">زر Compare يدرّب النماذج مرتين — بالتنظيف وبدونه على نفس التقسيم — ويعرض النتيجتين بلا إعلان فائز.</p>
+            </div>
+            <div class="flex gap-2 mt-7 flex-wrap"><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">before / after</span><span class="px-3 py-2 rounded-lg bg-white/5 text-xs mono">same split</span></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <!-- FEATURES -->
     <section id="features" class="relative py-32 md:py-48 border-t border-white/5">
       <div class="max-w-7xl mx-auto px-6 md:px-10">
@@ -511,6 +554,15 @@
         s6_headline: "YOUR DATA.<br>YOUR MACHINE.<br><span class=\"accent\">YOUR MODEL.</span>",
         s6_desc: "AIDSE مصمم للعمل على جهازك. المعالجة محلية 100%، وبياناتك الحساسة لا تحتاج أبدًا إلى مغادرة حاسوبك.",
         feat_kicker: "صندوق الأدوات المتكامل",
+        und_kicker: "قبل التدريب",
+        und_title: "افهم بياناتك قبل أن تغيّرها",
+        und_desc: "يفحص AIDSE الملف عند رفعه ويعرض ما وجده بأرقام محسوبة من بياناتك نفسها — ولا يغيّر شيئاً إلا بموافقتك.",
+        und1_h: "تقرير جودة بالأرقام",
+        und1_p: "الصفوف المكررة، والقيم الناقصة، والأعمدة الثابتة، والأعمدة المتطابقة حرفياً — مع سبب كل ملاحظة.",
+        und2_h: "القيم الشاذة واللانهائية",
+        und2_p: "اللانهاية ليست قيمة متطرفة بل غير معرّفة، وتُعرض منفصلة عن القيم الشاذة لأن علاجهما مختلف.",
+        und3_h: "قِسْ التنظيف لا تخمّنه",
+        und3_p: "زر Compare يدرّب النماذج مرتين — بالتنظيف وبدونه على نفس التقسيم — ويعرض النتيجتين بلا إعلان فائز.",
         feat_title: "كل ما تحتاجه<br><span class=\"accent\">في مكان واحد.</span>",
         feat1_h: "AutoML<br>متقدم",
         feat1_p: "XGBoost، LightGBM، CatBoost مع Optuna لتجارب معلمات فائقة منظمة وسريعة.",
@@ -577,6 +629,15 @@
         s6_headline: "YOUR DATA.<br>YOUR MACHINE.<br><span class=\"accent\">YOUR MODEL.</span>",
         s6_desc: "AIDSE is engineered for on-device computing. Processing is 100% local, and sensitive data never leaves your environment.",
         feat_kicker: "THE COMPLETE TOOLKIT",
+        und_kicker: "BEFORE YOU TRAIN",
+        und_title: "Understand the data before you change it",
+        und_desc: "AIDSE profiles a file the moment you upload it and shows what it found, with figures computed from your own data \u2014 and changes nothing without your approval.",
+        und1_h: "A quality report in numbers",
+        und1_p: "Duplicate rows, missing values, constant columns and columns that are exact copies of one another \u2014 each with the reason it matters.",
+        und2_h: "Outliers and infinities, apart",
+        und2_p: "An infinity is an undefined value, not an extreme one. It is reported separately from outliers because the fix is different.",
+        und3_h: "Measure a cleanup, don't guess it",
+        und3_p: "Compare trains the models twice \u2014 with the change and without it, on an identical split \u2014 and shows both results without declaring a winner.",
         feat_title: "Everything You Need<br><span class=\"accent\">In One Workspace.</span>",
         feat1_h: "Advanced<br>AutoML",
         feat1_p: "XGBoost, LightGBM, CatBoost with Bayesian Optuna optimization for structured, high-performance trials.",
