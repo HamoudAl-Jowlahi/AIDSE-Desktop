@@ -98,18 +98,35 @@
     html[dir="rtl"] .order-visual { order:2; }
     html[dir="ltr"] .order-visual { order:2; }
 
+    /* Mobile menu. Hidden markup on desktop; the button and the panel are the
+       only way to reach the sections once the inline nav collapses. */
+    .menu-btn { display:none; }
+    #mobileMenu { display:none; }
+    #mobileMenu.open { display:flex; }
+    #mobileMenu a { padding:.85rem 1rem; border-radius:.75rem; }
+    #mobileMenu a:hover { background:rgba(255,255,255,.06); }
+
+    /* Selectors below are doubled (.x.x) on purpose.
+       Tailwind runs from the CDN, which injects its utilities into a stylesheet
+       appended AFTER this block. A utility like .flex or .p-8 has the same
+       specificity as a bare .desktop-nav or .hero-console, so the later sheet
+       won and every class-based rule in here silently did nothing — the nav
+       never collapsed on a phone. Doubling the class raises specificity above
+       any single utility without reaching for !important. Rules keyed on an id
+       (#evalCards, #pipeline) already outrank utilities and are left alone. */
     @media(max-width:1024px){
       .story-panel .grid.lg\:grid-cols-2, .story-panel .grid.lg\:grid-cols-\[.8fr_1.2fr\] { gap:1.5rem; }
     }
     @media(max-width:768px){
       .hero-title { font-size:clamp(2.75rem,13vw,4.5rem) !important; line-height:0.95; }
       .story-title { font-size:clamp(2.5rem,12vw,4rem) !important; line-height:0.95; }
-      .orb { width:92vw; opacity:.35; }
-      .desktop-nav { display:none; }
-      .story-panel { padding-top:4.5rem; padding-bottom:1.5rem; }
-      .pipeline { direction:ltr; }
-      .hero-console { padding:1rem; border-radius:20px; }
-      .local-box { padding:1.25rem; border-radius:22px; }
+      .orb.orb { width:92vw; opacity:.35; }
+      .desktop-nav.desktop-nav { display:none; }
+      .menu-btn.menu-btn { display:inline-flex; }
+      .story-panel.story-panel { padding-top:4.5rem; padding-bottom:1.5rem; }
+      .pipeline.pipeline { direction:ltr; }
+      .hero-console.hero-console { padding:1rem; border-radius:20px; }
+      .local-box.local-box { padding:1.25rem; border-radius:22px; }
       #evalCards { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
       #evalCards .metric { padding: 1rem; }
       #pipeline { gap: 0.5rem; }
@@ -153,6 +170,14 @@
 
       <!-- ACTIONS: LANGUAGE -->
       <div class="flex items-center gap-3">
+        <!-- Shown only where the inline links are collapsed. -->
+        <button id="menuToggle" type="button" aria-expanded="false" aria-controls="mobileMenu" aria-label="القائمة"
+                class="menu-btn px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-cyan-300 transition items-center cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"/>
+          </svg>
+        </button>
+
         <!-- LANGUAGE TOGGLE BUTTON -->
         <button id="langToggle" onclick="toggleLanguage()" class="px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-bold text-cyan-300 transition flex items-center gap-1.5 cursor-pointer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,6 +188,15 @@
 
       </div>
     </nav>
+
+    <!-- The collapsed links. Same destinations as the bar, plus the policy,
+         which on a phone is otherwise only in the footer. -->
+    <div id="mobileMenu" class="mx-auto max-w-7xl glass rounded-2xl mt-2 p-2 flex-col text-sm text-white/70 font-medium">
+      <a href="#story" data-i18n="nav_how">كيف تعمل</a>
+      <a href="#features" data-i18n="nav_features">المزايا</a>
+      <a href="#privacy" data-i18n="nav_privacy">الخصوصية والأمان</a>
+      <a href="privacy.html" data-i18n="footer_policy">الخصوصية والاستخدام</a>
+    </div>
   </header>
 
   <main id="top">
@@ -184,7 +218,7 @@
             منصة علوم بيانات وتقييم نماذج تعمل محليًا على جهازك — من تجهيز البيانات، إلى AutoML وOptuna وSHAP، بدون أن تغادر بياناتك جهازك.
           </p>
           <div class="mt-9 flex flex-wrap justify-end-adaptive gap-3 reveal">
-            <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.3.3/AIDSE.Platform_0.3.3_x64-setup.exe" download data-download class="btn-primary rounded-xl px-6 py-3 font-bold flex items-center gap-2">
+            <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.3.2/AIDSE.Platform_0.3.2_x64-setup.exe" download data-download class="btn-primary rounded-xl px-6 py-3 font-bold flex items-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
               </svg>
@@ -486,7 +520,7 @@
         <div class="section-kicker justify-center">AIDSE / DESKTOP DATA SCIENCE</div>
         <h2 class="text-4xl sm:text-6xl md:text-[8rem] leading-[.88] tracking-[-.07em] font-black mt-6">DATA<br><span class="accent">INTELLIGENCE.</span></h2>
         <p class="mt-8 text-white/40 text-lg" data-i18n="cta_sub">Without the Cloud.</p>
-        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.3.3/AIDSE.Platform_0.3.3_x64-setup.exe" download data-download class="btn-primary inline-flex items-center gap-2 rounded-xl px-8 py-4 mt-8 font-bold text-base shadow-2xl shadow-white/10">
+        <a href="https://github.com/HamoudAl-Jowlahi/AIDSE-Desktop/releases/download/v0.3.2/AIDSE.Platform_0.3.2_x64-setup.exe" download data-download class="btn-primary inline-flex items-center gap-2 rounded-xl px-8 py-4 mt-8 font-bold text-base shadow-2xl shadow-white/10">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
           </svg>
@@ -508,6 +542,26 @@
       <span data-i18n="footer_tag">Built for private, local workflows.</span>
     </div>
   </footer>
+
+  <script>
+    // The menu closes on a choice, on Escape, and when the viewport grows
+    // back past the breakpoint — otherwise it stays open behind a bar that
+    // already shows the same links.
+    (function () {
+      var btn = document.getElementById("menuToggle");
+      var menu = document.getElementById("mobileMenu");
+      function close() { menu.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); }
+      btn.addEventListener("click", function () {
+        var open = menu.classList.toggle("open");
+        btn.setAttribute("aria-expanded", String(open));
+      });
+      menu.addEventListener("click", function (e) { if (e.target.closest("a")) close(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+      window.matchMedia("(min-width:769px)").addEventListener("change", function (e) {
+        if (e.matches) close();
+      });
+    })();
+  </script>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
